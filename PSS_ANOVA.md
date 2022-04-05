@@ -12,6 +12,17 @@ output:
 ---
 
 
+```r
+library(tidyverse)
+```
+
+```
+## Warning: package 'tidyverse' was built under R version 4.1.3
+```
+
+```
+## Warning: package 'tidyr' was built under R version 4.1.3
+```
 
 # Introduction/Recap
 
@@ -58,10 +69,58 @@ power = 1- \beta = 0.80$$
 
 Say that we have G groups (in our example here, G = 3) with N total individuals in all the groups combined.  Our test statistic for rejecting (or failing to reject) the null hypothesis will follow the F distribution with G-1 numerator degrees of freedom and N-G denominator degrees of freedom.  We'll reject H_0_ if our F statistic is greater than the critical value:
 $$F = \frac{MST}{MSE}=\frac{\frac{SST}{df1}}{\frac{SSE}{df2}} \gt F_{G-1, N-G, \alpha}$$
+*show a picture of the F distribution, especially of how it changes with different degrees of freedom in numerator and denominator?  Maybe also say something about how the F distribution changes depending on the num and denom degrees of freedom, and how this makes sample calcs complicated. I think this might be a good place for a very simple shiny app -- sliders for G and N to change the shape of the F distribution.  Also, I feel like I usually see k instead of G, do you have a preference?*
 
-*show a picture of the F distribution, especially of how it changes with different degrees of freedom in numerator and denominator?  Maybe also say something about how the F distribution changes depending on the num and denom degrees of freedom, and how this makes sample calcs complicated.*
+
+```r
+#example df curve with df1 = 10 and df2 = 20
+df1 <- 10  
+df2 <- 20 
+
+ggplot(data.frame(x = c(0, 3)), aes(x = x)) + 
+  stat_function(fun = df, 
+                args = list(df1 = df1, df2 = df2))
+```
+
+![](PSS_ANOVA_files/figure-html/unnamed-chunk-1-1.png)<!-- -->
+
+```r
+#for our example, 3 in each group
+G <- 3 #specify number of groups
+N <- 12 #specify total number of experimental units
+
+df1 <- G-1 
+df2 <- N-G 
+
+ggplot(data.frame(x = c(0, 3)), aes(x = x)) + 
+  stat_function(fun = df, 
+                args = list(df1 = df1, df2 = df2)) 
+```
+
+![](PSS_ANOVA_files/figure-html/unnamed-chunk-1-2.png)<!-- -->
+
+```r
+#for our example, 3 in each group
+G <- 3 #specify number of groups
+N <- 21 #specify total number of experimental units
+
+df1 <- G-1 
+df2 <- N-G 
+
+ggplot(data.frame(x = c(0, 3)), aes(x = x)) + 
+  stat_function(fun = df, 
+                args = list(df1 = df1, df2 = df2))
+```
+
+![](PSS_ANOVA_files/figure-html/unnamed-chunk-1-3.png)<!-- -->
+
+
 
 If the alternative hypothesis is true, the F distribution won't be the same as what we'd expect under the null hypothesis.  How will it change?  The difference between the F distribution we'd expect under the alternative hypothesis (=there is a difference between the means of different groups) and the null hypothesis (=all the means are the same) is captured by the noncentrality parameter lambda.
+
+
+
+
 
 # Two-way ANOVA model
 
