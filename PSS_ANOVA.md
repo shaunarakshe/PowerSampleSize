@@ -31,34 +31,48 @@ Recap of 2-sample t test PSS considerations.  Introduce noncentrality for t test
 # One-way ANOVA model
 
 What happens if we want to compare more than two means?  
+
 * We could do a bunch of 2 sample t tests. But this would inflate the false positive rate (more on this later).
+
 * We can use ANOVA to test the equality of all the means at once!
 
 ## ANOVA basic idea
 
-*Need to check with Dr. Minier how much people are likely to know already/how much depth she wants on this*
+*Need to check with Dr. Minier how much people are likely to know already/how much depth she wants on this. Also best notation to not be scary.*
 
 *Need graphic: scatterplot overlaid with box plots for 3 or more groups*
 
-ANOVA (Analysis of Variance) compares the means of several different groups.  If the variation **between** groups is large compared to the variation **within** groups, the means of groups are likely to really be different.  On the other hand, if the variation **within** groups is nearly as large as the variation **between** groups, any calculated difference in means is likely due to chance.
+ANOVA (Analysis of Variance) compares the means of several different groups.  If the variation **between** groups is large compared to the variation **within** groups, the means of groups are likely to really be different.  On the other hand, if the variation **within** groups is nearly as large as the variation **between** groups, any calculated difference in means is likely due to chance.  Note that we're not finding which means are different.  We just want to know if any means are different, or if they're all the same.
 
-A basic ANOVA model:
+A very basic ANOVA model:
+
 * The response variable is continuous.
+
 * We're comparing responses across fixed groups or categories.
+
 * The variances within each group are equal.
+
 * The individuals within each group and across groups are all independent.
 
 We'll start by looking at one-way ANOVA.  This means we are looking at the mean response across **one category** (eg Treatment Group = Treatment 1, Treatment 2, or Placebo).
 
 Common pitfalls:
-* Variances within the groups aren't equal. For now, let's assume we're using a mouse model with an established genotype, so we can expect the variance within each group of mice to be roughly similar.  If you expect wildly different variances between different groups for any reason, *tell your statistician early!* *Do we need to talk about this at all?  I saw some info about ANOVA power calcs with unequal variances, but I'm not sure if this is a common thing.*
+
+* Variances within the groups aren't equal. For now, let's assume we're using a mouse model with an established genotype, so we can expect the variance within each group of mice to be roughly similar.  If you expect wildly different variances between different groups for any reason, *tell your statistician early!* 
+
+*Do we need to talk about this at all?  I saw some info about ANOVA power calcs with unequal variances, but I'm not sure if this is a common thing.*
+
 * Individuals aren't independent
-  * Individuals in each group are measured twice, pre- and post-treatment.
-  * If this is your situation, you need repeated-measures ANOVA.  (We'll talk about this later today.) This changes the sample size calculations, so be sure that you discuss your research question and experimental design with your statistician!
+
+  + Individuals in each group are measured twice, pre- and post-treatment.
+  
+  + If this is your situation, you need repeated-measures ANOVA. (We'll talk about this later today.) This changes the sample size calculations, so be sure that you discuss your research question and experimental design with your statistician! 
+
+*Dr Minnier, our textbook had an example like this where they used ANCOVA with the pre-treatment biomarker level as concomitant variable. Can I show it to you?  I remember being confused at the time how they could get away with that.*.  
   
 Our hypotheses for ANOVA are:
-H_0_: All the means are equal. 
-H_A_: Not all the means are equal.  At least one mean is different from the others.
+H~0~: All the means are equal. 
+H~A~: Not all the means are equal.  At least one mean is different from the others.
 
 We also want to specify our Type I and Type II error rates.  Remember, Type I error is the probability that we will reject the null hypothesis given that it's actually true (a false positive), while Type II error is the probability that we'll fail to reject the null hypothesis when it's actually false (a false negative).  Here we will set the conventional values of alpha (Type I error rate) = 0.05 and beta (type II error rate) = 0.20, so power = 1- beta = 0.80.
 $$H_0: \mu_A = \mu_B = \mu_C\\
@@ -67,8 +81,8 @@ H_A: \textrm{At least one mean is different from the others.}\\
 \beta = 0.20\\
 power = 1- \beta = 0.80$$
 
-Say that we have G groups (in our example here, G = 3) with N total individuals in all the groups combined.  Our test statistic for rejecting (or failing to reject) the null hypothesis will follow the F distribution with G-1 numerator degrees of freedom and N-G denominator degrees of freedom.  We'll reject H_0_ if our F statistic is greater than the critical value:
-$$F = \frac{MST}{MSE}=\frac{\frac{SST}{df1}}{\frac{SSE}{df2}} \gt F_{G-1, N-G, \alpha}$$
+Say that we have G groups (in our example here, G = 3) with N total individuals in all the groups combined.  Our test statistic for rejecting (or failing to reject) the null hypothesis will follow the F distribution with G-1 numerator degrees of freedom and N-G denominator degrees of freedom.  We'll reject H_0_ if our F statistic is greater than or equal to the critical value:
+$$F = \frac{MST}{MSE}=\frac{\frac{SST}{df1}}{\frac{SSE}{df2}} \geq F_{G-1, N-G, \alpha}$$
 *show a picture of the F distribution, especially of how it changes with different degrees of freedom in numerator and denominator?  Maybe also say something about how the F distribution changes depending on the num and denom degrees of freedom, and how this makes sample calcs complicated. I think this might be a good place for a very simple shiny app -- sliders for G and N to change the shape of the F distribution.  Also, I feel like I usually see k instead of G, do you have a preference?*
 
 
@@ -118,7 +132,216 @@ ggplot(data.frame(x = c(0, 3)), aes(x = x)) +
 
 If the alternative hypothesis is true, the F distribution won't be the same as what we'd expect under the null hypothesis.  How will it change?  The difference between the F distribution we'd expect under the alternative hypothesis (=there is a difference between the means of different groups) and the null hypothesis (=all the means are the same) is captured by the noncentrality parameter lambda.
 
+$$\lambda = \frac{\sum n_i (\mu_i - \mu)^2}{\sigma^2}$$
 
+*I was unsure if I should use alphas or mu~i~s for the group level means. Which will be more understandable for experimentalists?  My guess is mu~i~s... *
+
+*Put in a brief detour: what is the noncentrality parameter for a two-sample t test*
+
+Example: Mice getting two treatments compared to placebo, looking at blood levels of biomarker after 2 weeks (a continuous measure). Group 1 is Treatment A.  Group 2 is Treatment B.  Group 3 is Placebo.  We estimate that compared to placebo, Group 1 will have a mean 1.5 units higher than placebo and Group 2 will have a mean 1.5 units lower than placebo. Let's say we expect a standard deviation of 0.8 units from previous experimental work. We want equal numbers of mice in each group and 80% power for a test with Type 1 error rate 0.05.
+$$G = 3\\
+\alpha = 0.05\\
+power = 0.80\\
+\mu_1 = 1.5\\
+\mu_2 = -1.5\\
+\mu_3 = 0$$
+
+Our F statistic will be $F = \frac{MSTr}{MSE}$, which will follow different F distributions under the null and alternative hypotheses. Our goal is to be able to distinguish between these two distributions with 80% power.  
+
+If our F statistic is greater than the critical value, we'll reject H_0_.  So we need the F statistic under the H_A_ distribution to be greater than that critical value. 
+
+If we have G groups with n mice each, then our total number of mice will be nG = N.  With 3 groups, the degrees of freedom of our F distributions will be df1 = G - 1 = 2 and df2 = nG - G = 3n - 3.
+
+What will lambda be? 
+$$\lambda = \frac{\sum n_i (\mu_i - \mu)^2}{\sigma^2} = \frac{1}{0.8}[1.5^2n+(-1.5)^2n + 0^2n]\\
+=\frac{4.5n}{0.8}=5.625n$$
+
+$$\textrm{Power = Pr(reject Ho | Ha is true)}\\
+= Pr(F_{\textrm{under Ha}} \geq F^*)\\
+= Pr(F_{G-1, N-G, \lambda} \geq F^*)\\
+= Pr(F_{2, 3n-3, 5.625n} \geq F^*$$
+
+Let's see what kind of power we'd get with n = 3!
+
+*This is what we will want the shiny app to calculate.  Put in guesses for sigma, either effect size D or the level means, number of groups, and power, and have it spit out ns*
+
+
+```r
+G <- 3 #specify number of groups
+n <- 3 #specify number in each group
+
+df1 <- G-1 
+df2 <- G*n - G 
+lambda <- 5.625*n
+alpha <- 0.05
+
+ggplot(data.frame(x = c(0, 3)), aes(x = x)) + 
+  stat_function(fun = df, 
+                args = list(df1 = df1, df2 = df2)) +   stat_function(fun = df,
+                args = list(df1 = df1, df2 = df2,                        ncp = lambda))
+```
+
+![](PSS_ANOVA_files/figure-html/unnamed-chunk-2-1.png)<!-- -->
+
+```r
+#Find the critical value for the distribution under the null hypothesis
+(Fcrit <- qf(alpha, G-1, G*n - G, lower.tail = F))
+```
+
+```
+## [1] 5.143253
+```
+
+```r
+#Find the probability of this critical value under Ha
+pf(Fcrit, G-1, G*n-G, ncp = lambda, lower.tail = F)
+```
+
+```
+## [1] 0.8069789
+```
+The probability of getting a value at least as extreme as the critical value, given that the null hypothesis is true so that our results follow this non-central distribution, is 0.807.  This corresponds to 80.7% power!
+
+What if we didn't expect so strong an effect?  What if we expect the mean response for Group 1 to be 1.1, the mean response for Group 2 to be -1.1, and the mean response for Group 3 (Placebo) to be 0?  We still expect a standard deviaton of 0.8, want equal numbers of mice in each group, and want 80% power.$$G = 3\\
+\alpha = 0.05\\
+power = 0.80\\
+\mu_1 = 1.1\\
+\mu_2 = -1.1\\
+\mu_3 = 0$$
+
+Now the noncentrality parameter for the distribution under H~a~ will be:
+$$\lambda = \frac{\sum n_i (\mu_i - \mu)^2}{\sigma^2} = \frac{1}{0.8}[1.1^2n+(-1.1)^2n + 0^2n]\\
+=\frac{2.42n}{0.8}=3.025n$$
+
+What happens to our power now if we use n = 3 in each group?
+
+
+```r
+G <- 3 #specify number of groups
+n <- 3 #specify number in each group
+
+df1 <- G-1 
+df2 <- G*n - G 
+lambda <- 3.025*n
+alpha <- 0.05
+
+ggplot(data.frame(x = c(0, 3)), aes(x = x)) + 
+  stat_function(fun = df, 
+                args = list(df1 = df1, df2 = df2)) +   stat_function(fun = df,
+                args = list(df1 = df1, df2 = df2,                        ncp = lambda))
+```
+
+![](PSS_ANOVA_files/figure-html/unnamed-chunk-3-1.png)<!-- -->
+
+```r
+#Find the critical value for the distribution under the null hypothesis
+(Fcrit <- qf(alpha, G-1, G*n - G, lower.tail = F))
+```
+
+```
+## [1] 5.143253
+```
+
+```r
+#Find the probability of this critical value under Ha
+pf(Fcrit, G-1, G*n-G, ncp = lambda, lower.tail = F)
+```
+
+```
+## [1] 0.5376305
+```
+Now our power is only 0.54 or 54%!  Bummer.  How about if we raise the number of mice to 4 per group.
+
+
+```r
+G <- 3 #specify number of groups
+n <- 4 #specify number in each group
+
+df1 <- G-1 
+df2 <- G*n - G 
+lambda <- 3.025*n
+alpha <- 0.05
+
+ggplot(data.frame(x = c(0, 3)), aes(x = x)) + 
+  stat_function(fun = df, 
+                args = list(df1 = df1, df2 = df2)) +   stat_function(fun = df,
+                args = list(df1 = df1, df2 = df2,                        ncp = lambda))
+```
+
+![](PSS_ANOVA_files/figure-html/unnamed-chunk-4-1.png)<!-- -->
+
+```r
+#Find the critical value for the distribution under the null hypothesis
+(Fcrit <- qf(alpha, G-1, G*n - G, lower.tail = F))
+```
+
+```
+## [1] 4.256495
+```
+
+```r
+#Find the probability of this critical value under Ha
+pf(Fcrit, G-1, G*n-G, ncp = lambda, lower.tail = F)
+```
+
+```
+## [1] 0.746814
+```
+Power is 0.75 or 75%.  Still not there.  We need more mice.  n = 5 in each group?
+
+
+```r
+G <- 3 #specify number of groups
+n <- 5 #specify number in each group
+
+df1 <- G-1 
+df2 <- G*n - G 
+lambda <- 3.025*n
+alpha <- 0.05
+
+ggplot(data.frame(x = c(0, 3)), aes(x = x)) + 
+  stat_function(fun = df, 
+                args = list(df1 = df1, df2 = df2)) +   stat_function(fun = df,
+                args = list(df1 = df1, df2 = df2,                        ncp = lambda))
+```
+
+![](PSS_ANOVA_files/figure-html/unnamed-chunk-5-1.png)<!-- -->
+
+```r
+#Find the critical value for the distribution under the null hypothesis
+(Fcrit <- qf(alpha, G-1, G*n - G, lower.tail = F))
+```
+
+```
+## [1] 3.885294
+```
+
+```r
+#Find the probability of this critical value under Ha
+pf(Fcrit, G-1, G*n-G, ncp = lambda, lower.tail = F)
+```
+
+```
+## [1] 0.8724433
+```
+Now we're at 87% power.  But instead of only 9 mice, we need 15 mice total, and we'll have to decide if that's feasible for our study.
+
+**What's the takeaway?**
+Our power to distinguish between the null hypothesis distribution and the alternative hypothesis distribution depends on the noncentrality parameter, lambda.  The bigger lambda is, the more power we have.
+
+What results in a big lambda?
+$$\lambda = \frac{\sum n_i (\mu_i - \mu)^2}{\sigma^2}$$
+
+* Large number of individuals in each group (n_i_)
+
+* Large difference between group level means and the overall (grand) mean
+
+  + This makes intuitive sense.  The more different your group means are, the easier it will be to prove they're actually different!  This is related to the idea of effect size, which we'll talk about in a minute.
+  
+* Small standard deviation.
+
+  + This also makes sense.  If there's not a lot of scatter within groups, it's easier to see the differences between groups.
+*Say something about number of groups? Some ncps include a "divided by k" that will penalize for number of groups*
 
 
 
