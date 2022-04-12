@@ -46,13 +46,19 @@ A very basic ANOVA model:
 
 * The individuals within each group and across groups are all independent.
 
+* Within each group, the responses follow a roughly normal distribution.
+
 We'll start by looking at one-way ANOVA.  This means we are looking at the mean response across **one category** (eg Treatment Group = Treatment 1, Treatment 2, or Placebo).
 
 Common pitfalls:
 
-* Variances within the groups aren't equal. For now, let's assume we're using a mouse model with an established genotype, so we can expect the variance within each group of mice to be roughly similar.  If you expect wildly different variances between different groups for any reason, *tell your statistician early!* 
+* Violations of ANOVA model assumptions regarding response data distributions
 
-*Do we need to talk about this at all?  I saw some info about ANOVA power calcs with unequal variances, but I'm not sure if this is a common thing.*
+  + Variances within the groups aren't roughly equal. For example, if we're using a mouse model with an established genotype, we can expect the variance within each group of mice to be roughly similar.  But if you expect wildly different variances between different groups for any reason, *tell your statistician early!* 
+
+  + Responses within each group aren't roughly normally distributed.  This is another violation of ANOVA assumptions, and if you expect to see it, it needs to be discussed. 
+  
+  + Violations of ANOVA assumptions that are too severe mean that you'll need to analyze your data using a different model.  The power of a nonparametric model (for example, Kruskal-Wallis) is much less than that of ANOVA for a similar sample size.
 
 * Individuals aren't independent
 
@@ -61,6 +67,8 @@ Common pitfalls:
   + If this is your situation, you need repeated-measures ANOVA. (We'll talk about this later today.) This changes the sample size calculations, so be sure that you discuss your research question and experimental design with your statistician! 
 
 *Dr Minnier, our textbook had an example like this where they used ANCOVA with the pre-treatment biomarker level as concomitant variable. Can I show it to you?  I remember being confused at the time how they could get away with that.*.  
+
+*Put the ANOVA model equation here and discuss*
   
 Our hypotheses for ANOVA are:
 H~0~: All the means are equal. 
@@ -142,7 +150,7 @@ $$\lambda = \frac{\sum n_i (\mu_i - \mu)^2}{\sigma^2} = \frac{1}{0.8}[1.5^2n+(-1
 $$\textrm{Power = Pr(reject Ho | Ha is true)}\\
 = Pr(F_{\textrm{under Ha}} \geq F^*)\\
 = Pr(F_{G-1, N-G, \lambda} \geq F^*)\\
-= Pr(F_{2, 3n-3, 5.625n} \geq F^*$$
+= Pr(F_{2, 3n-3, 5.625n} \geq F^*)$$
 
 Let's see what kind of power we'd get with n = 3!
 
@@ -263,17 +271,142 @@ $$\lambda = \frac{\sum n_i (\mu_i - \mu)^2}{\sigma^2}$$
   + This also makes sense.  If there's not a lot of scatter within groups, it's easier to see the differences between groups.
 *Say something about number of groups? Some ncps include a "divided by k" that will penalize for number of groups*
 
+*also add a statement about how to choose the mean level responses to maximize/minimize sample size**
+
+## Effect size
+
+The problem with the power calculations above is that we had to specify the mean of each level.  Since this is what we want to figure out with our experiment, it's hard.  What we really want is a way to compute power or sample size based on a meaningful difference between level means!
+
+When we talked about comparing the means of just two groups (with a 2-sample t test), we defined the "effect size" as the difference in the two means.  For power calculations, we specify 3 out of the 4 of effect size, sample size, power, and alpha, and solve for the fourth. The notion of effect size makes power calculations easier because instead of having to specify means for each group, we can just specify what a meaningful difference would be.
+
+We can similarly define an effect size for ANOVA power calculations.  Here we're not just comparing the means of two groups, we're comparing the means of three or more groups.  So we're interested in how much the means differ among all three (or more) groups.  We'll measure this with a "variance of the means", $\sigma^2_m$.
+
+The grand mean $\mu$ is the weighted average of all the level means:
+$$\mu = \sum_{i=1}^{G}(\frac{n_i}{N})\mu_i$$
+We'll define the variance of the means as the squared difference between the level means and the grand mean. This is analogous to the more familiar variance that we estimate with standard deviation:
+$$\sigma^2 = \sum_{i=1}^{n}\frac{(x_i-\mu)^2}{n} \approx \sum_{i=1}^{n}\frac{(x_i-\bar{x})^2}{n-1}$$
+This definition of the variance of the means gives us:
+$$\sigma_m = \sum_{i=1}^{G}(\frac{n_i}{N})(\mu_i - \mu)^2$$
+We can rewrite our noncentrality parameter, lambda, in terms of this variance of the means:
+$$\lambda = \frac{\sum_{i=1}^{G} n_i(\mu_i - \mu)^2}{\sigma^2}=\frac{N\sum_{i=1}^{G} \frac{n_i}{N}(\mu_i - \mu)^2}{\sigma^2}\\
+=N \frac{\sigma^2_m}{\sigma^2}$$
+
+Now we've got lambda written as a function of the ratio of the variance of the means to the overall variance!  You can think of this as a comparison of "how much do the means differ between groups" to "how much scatter is there overall between all the data points".  This is what we'll use as our "effect size" for ANOVA.
+
+*we need another graphic here with the grand mean and level means and overall scatter*
+
+One commonly used effect size parameter for ANOVA is Cohen's f, which is simply defined as
+$$f = \sqrt{\frac{\sigma^2_m}{\sigma^2}}$$
+The noncentrality parameter can then be written as:
+$$\lambda = Nf^2$$
+to simplify power calculations.  Now instead of needing to specify a level mean for each group, we can just specify one effect size.
+
+Cohen suggested guidelines for f: 
+$$f = 0.1 ~~\textrm{small effect}\\
+f = 0.25 ~~\textrm{medium effect}\\
+f = 1.0 ~~\textrm{large effect}$$
+
+But these are very general guidelines and might not apply to your research!  Don't just plug them in blindly.  Use your subject area expertise to determine a meaningful effect size for your study.  It might be easier to start by thinking of the variance of the means, $\sigma_m^2$, compared to the spread of data you've seen in past experiments ($\sigma^2$ can be estimated with the square of the standard deviation).  
+
+Another effect size parameter for ANOVA is $\eta^2$ (eta-squared):
+$$\eta^2 = \frac{\sigma^2_m}{\sigma^2_m + \sigma^2}=\frac{f^2}{1+f^2}$$
+At first glance this seems even less intuitive, but a little rearrangement might be able to help you figure out a meaningful value for Cohen's f.  $\eta^2$ can also be written in terms of sums of squares, as the proportion of the total variation in the dependent variable that can be explained by the group level effect:
+$$\eta^2 = \frac{\sigma^2_m}{\sigma^2_m + \sigma^2} = \frac{SS_{Treatment}}{SS_{Total}}$$
+Maybe you have some idea (say from previous experiments) how the sums of squares will be partitioned between the independent variable and error terms, or else you can estimate the ratio you'd need for clinical relevance.  Then you can use this to estimate f by rearranging:
+
+$$\eta^2 = \frac{f^2}{1+f^2}\\
+\textrm{then}~~f^2 = \frac{\eta^2}{1-\eta^2}$$
 
 
 # Two-way ANOVA model
 
-# Interactions?
+
+*Notes/Questions: Do we want to include interaction stuff like this, or separately, or not at all?  Do we want to discuss fixed vs random factors at all?  (=Is this something you're going to want to bring into a discussion later on?)*
+
+Many experiments involve testing more than one factor.  In the example of mice receiving Treatment A, Treatment B, or Placebo, we might also be interested in whether the blood biomarker level differs according to the sex of the mouse.  Now we have two different "effects" to consider, plus the way they interact:
+* Treatment effect (A, B, or Placebo)
+* Sex effect (male or female)
+* Interaction between Treatment effect and Sex effect
+
+  + Maybe we expect the biological mechanism of Treatment A to operate through pathways influenced by sex hormones.
+  + Male mice in the placebo group might have high levels of the biomarker, while female mice in the placebo group have low biomarker levels.  But female mice in the treatment groups might have increased levels of the biomarker, while the biomarker levels in male mice decrease or stay constant.  
+  + Effect level responses that differ according to the other effect level are interactions.
+
+Our ANOVA model now has more terms in it:
+$$\mu_{ij}=\mu + \alpha_i + \beta_j + (\alpha\beta)_{ij}$$
+where $\mu_{ij}$ is the mean in a particular cell, $\mu$ is the grand mean, $\alpha_i$ is the first effect (for example, Treatment), $\beta$ is the second effect (for example, Sex), and $(\alpha\beta)_{ij}$ is the interaction between the two effects. 
+
+We calculate power using the same general method as for one-way ANOVA.  We still want to distinguish between the distributions that correspond to the null and alternative hypotheses.  For now, let's use our mouse biomarker example, and let's assume that we don't expect any interaction between Treatment and Sex.  There will be three pairs of null and alternative hypothesis, each testable with a partial F statistic that corresponds to the sum of squares for that independent variable divided by the total sum of squares:
+
+$$H_0: \alpha_1 = \alpha_2 = \alpha_3 = 0\\
+\textrm{There is no Treatment effect.}\\
+\sim F_{a-1, ab(n-1), 0.05}\\
+H_A: \textrm{There is a Treatment effect.}\\
+\sim F_{a-1, ab(n-1), 0.05, \lambda}$$
+
+$$H_0: \beta_1 = \beta_2=0\\
+\textrm{There is no Sex effect.} \\
+\sim F_{b-1, ab(n-1), 0.05}\\
+H_A: \textrm{There is a Sex effect.}\\
+\sim F_{b-1, ab(n-1), 0.05, \lambda}$$
+
+$$H_0: \textrm{All the}~~(\alpha\beta)~~ \textrm{terms}= 0\\
+\textrm{There is no interaction effect.}\\ 
+\sim F_{(a-1)(b-1), ab(n-1), 0.05}\\
+H_A: \textrm{There is an interaction effect.}\\
+\sim F_{(a-1)(b-1), ab(n-1), 0.05}$$
+
+Here, a is the number of groups for the first effect (Treatment), b is the number of groups for the second effect (Sex), and n is the number of individuals in each cell of the ANOVA table (each combination of a and b).
+
+Once again, we'll use the noncentrality parameter lambda to represent how the distribution of the F statistic under the alternative hypothesis differs from the distribution under the null hypothesis.  There will be a different lambda for each effect!  Remember that lambda is defined as:
+$$\lambda = N \frac{\sigma_M^2}{\sigma^2}$$
+So the distribution under the alternative hypothesis, and thus the power of our test, will depend on the ratio of the variance of the mean for the effect we're testing to the overall variance. Just like for one-way ANOVA, we can either specify the group level means or use the effect size 
+$$f=\frac{\sigma_M^2}{\sigma^2}$$
+to estimate the required sample size.
+
+If you can specify 
+
+*What do we want in terms of illustration for this -- a sample, a calculator, nothing?  I'm not sure where you want this to go*
+
+
+# Interactions
+
+*Dr. Minnier, I wasn't sure how much you want to go into interactions.  Do you want something else/more here? I feel like interactions are super confusing to begin with and will be even more confusing with the math added in, but I can do it. Maybe an example with numbers would be better than just equations.*
+
+Power calculations for interaction terms can be tricky to think about, because there are two basic types of interactions.
+
+**Ordinal** interactions occur when the mean of a group for one effect is always lower than the other mean of the other group(s) for that effect, no matter what the level of the second effect.  In our mouse example, if male mice had lower concentrations of blood biomarker than female mice no matter what the treatment group, and the biomarker concentration with Treatment A increased less for male mice than for female mice, then there would be an ordinal interaction between Treatment and Sex.
+
+**Disordinal** interactions occur when the group level means within one effect flip order, depending on the level of the other effect.  In our mouse example, if male mice had lower concentrations of blood biomarker than female mice with Placebo and Treatment A, but higher concentrations of blood biomarker with Treatment B, then there would be a sisordinal interaction between Treatment and Sex.
+
+*need a graphic with the two types of interactions here*
+
+We saw earlier that the variance of the mean, $\sigma_M$, could be expressed in terms of the sum of squares due to the group level effect. With disordinal interactions, the interaction term accounts for more of the total sum of squares, and the main effects account for less.  This means that the power of the test for the interaction term will be relatively high.
+
+With ordinal interactions, on the other hand, the main effects account for more of the total sum of squares, and the interaction term accounts for less.  This means that the power of the test for the interaction term will be relatively low, so large sample sizes will be needed in order to reject the null hypothesis of no interaction effect!
 
 # Multiple comparisons considerations
 
+*Not sure how deep into this you'd like to go, either...  I'm happy to add details if you like, especially if you give me some guidance about what you'd like included.  The Dunnett test approach?*
+
+Say you ran your experiment and crunched the data, and you were able to reject the null hypothesis.  HURRAY!  But what does that mean?
+
+Rejecting the null hypothesis in ANOVA means that there is a group level effect -- across whatever groups you were looking at, there is a difference in means.  **It doesn't tell you which means are different.**  Take our one-way ANOVA example with Treatment A, Treatment B, and Placebo.  Rejecting the null hypothesis means that not all the group level means are the same, but if we want to know which group level means are significantly different from each other, we will have to compare them pairwise with t-tests: Treatment A vs Treatment B, Treatment A vs Placebo, and Treatment B vs Placebo.
+As the number of group level means we compare goes up, the number of pairwise comparisons increases fast.  This is a problem because **if we perform each pairwise comparison with alpha = 0.05, the overall error rate will be much higher than 5%**.  
+
+The overall or family-wise error rate is controlled during analysis by reducing the alpha level for each individual test.  The simplest (Bonferroni) method is to divide alpha by the number of tests to be performed.  In our mouse biomarker example, the alpha for each individual 2-sample t test would become 0.05/3 = 0.0167.  This has the effect of making it harder to reject the null hypothesis for any individual test.  
+
+*tie this back into t tests*
+
 # ANCOVA
 
-# Unbalanced ANOVA
+# References
 
-Do you ever run into anybody who wants to plan an unbalanced ANOVA?  We might be able to leave this out.
+
+Huang, Yibi.  "Chapter 7: Power & Sample Size Calculation for ANOVA."  http://www.stat.uchicago.edu/~yibi/teaching/stat222/2017/Lectures/C07.pdf
+
+Lakens D, Caldwell AR. Simulation-Based Power Analysis for Factorial Analysis of Variance Designs. Advances in Methods and Practices in Psychological Science. January 2021. doi:10.1177/2515245920951503
+
+PASS software documentation. "One-Way Analysis of Variance F-Tests Using Effect Size." "Factorial Analysis of Variance."
+
 
