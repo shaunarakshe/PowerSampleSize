@@ -25,7 +25,7 @@ cohensfminmax <- function(Delta=1, sd=1, G=3){
   fmax <- sdm.max/sd
   
   #Make power curves
-  cohensf <- seq(fmin, fmax, by = (fmax-fmin)/5)
+  cohensf <- c(fmin, fmax, 0.1, 0.25, 0.4)
   n <- c(seq(2, 10, by = 1), seq(12, 20, by = 2))
   
   powerdata <- crossing(cohensf, n) %>%
