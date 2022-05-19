@@ -1,12 +1,15 @@
 
-#One way ANOVA power calculations
+# One way ANOVA power calculations
+# Shauna Rakshe
+# BSTA 500: Power Sample Size
+
 
 library(shiny)
 library(tidyverse)
 library(broom)
 library(ggplot2)
 library(pwr)
-library(glue)
+
 
 cohensfminmax <- function(Delta=1, sd=1, G=3, nmin = 2, nmax = 20){
   #calculate min cohen's f
@@ -92,157 +95,167 @@ effectsize <- function(nmin, nmax, powermin, powermax, G){
   
 }
 
-#set up tabs
-parameter_tabs <- tabsetPanel(
-  id = "params",
-  type = "hidden",
-  tabPanel(1,
-           numericInput("Delta",
-                        "Minimum difference in means (delta):",
-                        min = 0.01,
-                        max = 10,
-                        value = 1),
-           numericInput("sd",
-                        "Standard deviation",
-                        min = 0.01,
-                        max = 10,
-                        value = 1),
-           numericInput("nmin",
-                        "Minimum n per group",
-                        min = 2,
-                        max = 200,
-                        value = 3),
-           numericInput("nmax",
-                        "Maximum n per group",
-                        min=3,
-                        max=300,
-                        value=20)
-  ),
-  tabPanel(2,
-           numericInput("powermin",
-                        "Minimum power",
-                        min = 0.1,
-                        max = 1,
-                        value = 0.75),
-           numericInput("powermax",
-                        "Maximum power",
-                        min=0.1,
-                        max=1,
-                        value=0.9),
-           numericInput("Delta",
-                        "Minimum difference in means (delta):",
-                        min = 0.01,
-                        max = 10,
-                        value = 1),
-           numericInput("sd",
-                        "Standard deviation",
-                        min = 0.01,
-                        max = 10,
-                        value = 1),
-           
-  ),
-  tabPanel(3,
-           numericInput("powermin",
-                        "Minimum power",
-                        min = 0.1,
-                        max = 1,
-                        value = 0.75),
-           numericInput("powermax",
-                        "Maximum power",
-                        min=0.1,
-                        max=1,
-                        value=0.9),
-           numericInput("nmin",
-                        "Minimum n per group",
-                        min = 2,
-                        max = 200,
-                        value = 3),
-           numericInput("nmax",
-                        "Maximum n per group",
-                        min=3,
-                        max=300,
-                        value=20),
-      tabPanel(4
-               )
-           
-           
-  )
-)
-
-
-
-# Define UI for application 
 ui <- fluidPage(
   
-  # Application title
- 
-  titlePanel("Power calcs for 1-way ANOVA"),
-  withMathJax(),
+  #Title
+  titlePanel("Power & Sample Size for 1-way ANOVA"),
+  #withMaxJax(),
   
   
-  
-  # Sidebar with numeric inputs for delta, sd, number of groups
-  sidebarLayout(
-    sidebarPanel(#fluid = T,
-      #width = 3,
-      selectInput("select",
-                  h3("Select one to calculate:"),
-                  choices = list("Power" = 1, 
-                                 "Sample size" = 2,
-                                 "Effect size" = 3,
-                                 "Documentation" = 4),
-      ),
-      numericInput("G",
-                   "Number of groups",
-                   min=2,
-                   max=15,
-                   value=3),
-      parameter_tabs,
-    ),
+  #Sidebar panel 
+  sidebarPanel(fluid = T,
+               selectInput("select",
+                           h3("Select option:"),
+                           choices = list("Power" = 1, 
+                                          "Sample size" = 2,
+                                          "Effect size" = 3)),
+               numericInput("G",
+                            "Number of groups",
+                            min=2,
+                            max=15,
+                            value=3),
+               #conditional panel for power calculation
+               conditionalPanel(condition="input.select == 1",
+                                numericInput("Delta",
+                                             "Minimum difference in means (delta):",
+                                             min = 0.01,
+                                             max = 10,
+                                             value = 1),
+                                numericInput("sd",
+                                             "Standard deviation",
+                                             min = 0.01,
+                                             max = 10,
+                                             value = 1),
+                                numericInput("nmin",
+                                             "Minimum n per group",
+                                             min = 2,
+                                             max = 200,
+                                             value = 3),
+                                numericInput("nmax",
+                                             "Maximum n per group",
+                                             min=3,
+                                             max=300,
+                                             value=20)),
+               #conditional panel for sample size calculation
+               conditionalPanel(condition="input.select == 2",
+                                numericInput("powermin",
+                                             "Minimum power",
+                                             min = 0.1,
+                                             max = 1,
+                                             value = 0.75),
+                                numericInput("powermax",
+                                             "Maximum power",
+                                             min=0.1,
+                                             max=1,
+                                             value=0.9),
+                                numericInput("Delta",
+                                             "Minimum difference in means (delta):",
+                                             min = 0.01,
+                                             max = 10,
+                                             value = 1),
+                                numericInput("sd",
+                                             "Standard deviation",
+                                             min = 0.01,
+                                             max = 10,
+                                             value = 1)),
+               #conditional panel for effect size calculation
+               conditionalPanel(condition="input.select == 3",
+                                numericInput("powermin",
+                                             "Minimum power",
+                                             min = 0.1,
+                                             max = 1,
+                                             value = 0.75),
+                                numericInput("powermax",
+                                             "Maximum power",
+                                             min=0.1,
+                                             max=1,
+                                             value=0.9),
+                                numericInput("nmin",
+                                             "Minimum n per group",
+                                             min = 2,
+                                             max = 200,
+                                             value = 3),
+                                numericInput("nmax",
+                                             "Maximum n per group",
+                                             min=3,
+                                             max=300,
+                                             value=20))           
+  ),
+  mainPanel(
+    tabsetPanel(id = "main_tab",
+                type = "tabs",
+                tabPanel("Results", 
+                         plotOutput("powerplot"),
+                         textOutput("text"),
+                         dataTableOutput("table")),
+                tabPanel("Documentation",
+                         tags$br(),
+                         div(id = "about_p", 
+                             p("This app calculates power, sample size per group,
+                               or minimum detectable effect size for one-way ANOVA models.")),
+                         p(h4("Calculations"),
+                           "Power/sample size/effect size were calculated using 
+                           pwr:: pwr.anova.test().  See the pwr package documentation for details:",
+                           tags$a(href="https://cran.r-project.org/web/packages/pwr/pwr.pdf", "pwr documentation"),
+                           "The source code for this app can be found here:",
+                           tags$a(href="https://github.com/shaunarakshe/PowerSampleSize", "code"),
+                          "Minimum and maximum Cohen's f effect sizes were calculated from the difference 
+                         in means using the method described in the PASS documentation:",
+                         tags$a(href="https://www.ncss.com/wp-content/themes/ncss/pdf/Procedures/PASS/One-Way_Analysis_of_Variance_Assuming_Equal_Variances-F-Tests.pdf","PASS documentation"),
+                         "Note that this procedure assumes equality of variances across groups."
+                         ),
+                         p(h4("About ANOVA Models"),
+                           "ANOVA models allow the comparison of multiple group means at the same time.
+                           One-way ANOVA compares means of groups across one categorical variable.
+                           There are several assumptions that must be satisfied: the response variable must be
+                           continuous; all observations both within and between groups must be independent of each
+                           other; the variance of groups must be roughly equal; and observations within each group 
+                           must be reasonably normally distributed.  For these sample size calculations, we also
+                           assume that the number of observations (n) is the same for each group."),
+                         p(h5("Hypotheses:"),
+                           "H0: The means of all the groups are equal.",
+                           tags$br(),
+                           "HA: The mean of at least one group is different from the others.",
+                           tags$br(),
+                           "alpha = 0.05",
+                           tags$br(),
+                           "Note that rejecting the null hypothesis only tells us that the mean of at least
+                           one group is different.  It does not tell us which means differ.  In order to
+                           determine which means differ, we must perform a 2-sample t test on each pair of means.
+                           This is often done using a correction factor, such as the Bonferroni correction, in 
+                           order to control the overall type I error rate.  This app does not perform
+                           power calculations for multiple comparisons."),
+                         p(h4("Overview of App Options"),
+                           p(h5("Power"),
+                             "This option calculates the power of the F test for ANOVA based on sample size,
+                             effect size, and number of groups.  Effect size can be input as Cohen's f, or the user
+                             can specify the minimum difference between two group means and the overall standard deviation.
+                             This information is then used to calculate a minimum and a maximum possible value for 
+                             Cohen's f."),
+                           p(h5("Sample Size"),
+                             "This option calculates the required sample size per group based on selected values of power,
+                             effect size, and number of groups.  Effect size can be input as Cohen's f, or the user
+                             can specify the minimum difference between two group means and the overall standard deviation.
+                             This information is then used to calculate a minimum and a maximum possible value for 
+                             Cohen's f."),
+                           p(h5("Effect Size"),
+                             "This option calculates the minimum detectable effect size based on selected values of power,
+                             sample size per group, and number of groups.  Effect size is reported as a value of Cohen's f."),
+                           ),
+                         p("Created by Shauna Rakshe with guidance from Meike Niederhausen and Jessica Minnier."),
+                         p("Please contact rakshe@ohsu.edu with questions or feedback.")
+                         ),
+                selected = "Results"
+    )
     
     
-    # Show a plot 
-    mainPanel(
-     # tabsetPanel(
-           #       type = "tabs",
-             #     tabPanel("Calculations", plotOutput("powerplot", width = "100%"),
-               #            textOutput("text", width = "100%"), dataTableOutput("table", width = "100%")),
-               #   tabPanel("About",
-                #           width = "100%",
-                #           tags$br(),
-                #           div(id = "about_p", p("This app calculates power and sample size for a one-sample Z and T-test. 
-       # It was designed to give learners an intuitive understanding of these calculations by 
-       # visualizing the way changes in parameters yield different power curves and distributions."))),
-     # selected = "Calculations")
-     # )
-    htmlOutput("docs"),
-     plotOutput("powerplot"),
-      #h5("Table columns are values of Cohen's f. Table cells are values of power."),
-     textOutput("text"),
-     dataTableOutput("table")
-   )
+    
   )
+  
+  
 )
 
-# Define server logic required to draw a histogram
-server <- function(input, output) {
-  
-  observeEvent(input$select, {
-    updateTabsetPanel(inputId = "params", selected = input$select)
-  }) 
-  
-  output$docs <- renderUI({
-    if(input$select ==1){
-      HTML("<b>Power as a function of effect size and sample size.</b>")
-    }else if(input$select ==2){
-      HTML("<b>Sample size as a function of effect size and power.</b>")
-    }else if(input$select ==3){
-      HTML("<b>Detectable effect size as a function of power and sample size.</b>")
-    }else{
-      HTML("<b>This is a test.</b>")
-    }
-  })
-  
+server <- function(input, output){
   output$powerplot <- renderPlot({
     #   print(input$select)
     if(input$select==1) {
@@ -265,7 +278,7 @@ server <- function(input, output) {
           x = "Power",
           y = "Number in each group (n)"
         )
-    }else if(input$select==3){
+    }else {
       powerdata <- effectsize(input$nmin, input$nmax,
                               input$powermin, input$powermax,
                               input$G)
@@ -276,20 +289,16 @@ server <- function(input, output) {
           x = "Number in each group (n)",
           y = "Detectable Cohen's f"
         )
-    }else{
-      powerdata <- NULL
     }
   })
-
+  
   output$text <- renderText({
     if(input$select ==1){
       "Table columns are values of Cohen's f. Table cells are values of power."
     }else if(input$select ==2){
       "Table columns are values of power. Table cells are values of n per group."
-    }else if(input$select == 3){
-      "Table columns are values of power. Table cells are values of Cohen's f."
     }else{
-      ""
+      "Table columns are values of power. Table cells are values of Cohen's f."
     }
   })
   
@@ -305,25 +314,23 @@ server <- function(input, output) {
       powerdata <- nfrompower(input$powermin, input$powermax,
                               input$Delta, input$sd, input$G) %>%
         mutate(cohensf = round(cohensf, digits = 2),
-              n = round(n)) %>%
+               n = round(n)) %>%
         pivot_wider(names_from = "power",
                     values_from = "n") 
-    }else if(input$select==3){
+    }else{
       powerdata <-effectsize(input$nmin, input$nmax, 
                              input$powermin, input$powermax,
                              input$G) %>%
         mutate(f = round(f, digits = 2)) %>%
         pivot_wider(names_from = "power",
                     values_from = "f") 
-    }else{
-      powerdata <- NULL
     }
     
   })
   
+  
+  
+  
 }
 
-# Run the application 
 shinyApp(ui = ui, server = server)
-
-
