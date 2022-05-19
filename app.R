@@ -43,6 +43,23 @@ cohensfminmax <- function(Delta=1, sd=1, G=3, nmin = 2, nmax = 20){
   
 }
 
+powerfromfn <- function(fmin, fmax, G=3, nmin = 2, nmax = 20){
+  
+  cohensf <- c(fmin, fmax, 0.1, 0.25, 0.4)
+  n <- seq(nmin, nmax, by = 1)
+  
+  powerdata <- crossing(cohensf, n) %>%
+    rowwise() %>%
+    mutate(power = pwr::pwr.anova.test(
+      f=cohensf,
+      k=G,
+      n = n,
+      sig.level = 0.05
+    ) %>% tidy() %>% pull(power) )  
+  
+}
+
+
 nfrompower <- function(powermin=0.7, powermax=0.9, 
                        Delta=1, sd=1, G=3){
   sdm.min <- Delta/sqrt(2*G)
@@ -116,16 +133,6 @@ ui <- fluidPage(
                             value=3),
                #conditional panel for power calculation
                conditionalPanel(condition="input.select == 1",
-                                numericInput("Delta",
-                                             "Minimum difference in means (delta):",
-                                             min = 0.01,
-                                             max = 10,
-                                             value = 1),
-                                numericInput("sd",
-                                             "Standard deviation",
-                                             min = 0.01,
-                                             max = 10,
-                                             value = 1),
                                 numericInput("nmin",
                                              "Minimum n per group",
                                              min = 2,
@@ -135,7 +142,38 @@ ui <- fluidPage(
                                              "Maximum n per group",
                                              min=3,
                                              max=300,
-                                             value=20)),
+                                             value=20),
+               #select whether to enter delta and sd, or cohen's f
+               selectInput("effect_calc",
+                           h3("Select input type:"),
+                           choices = list("Cohen's f" = 1, 
+                                          "Difference in means" = 2)),
+                   #conditional panel for cohen's f
+                 conditionalPanel(condition="input.effect_calc == 1",
+                                  numericInput("fmin",
+                                               "Minimum Cohen's f",
+                                               min = 0.01,
+                                               max = 5,
+                                               value = 0.1),
+                                  numericInput("fmax",
+                                               "Maximum Cohen's f",
+                                               min=0.1,
+                                               max=10,
+                                               value=0.4)),
+               #conditional panel for mean/sd
+               conditionalPanel(condition="input.effect_calc == 2",
+                                numericInput("Delta",
+                                             "Minimum difference in means (delta):",
+                                             min = 0.01,
+                                             max = 10,
+                                             value = 1),
+                                numericInput("sd",
+                                             "Standard deviation",
+                                             min = 0.01,
+                                             max = 10,
+                                             value = 1))
+               ),
+                                
                #conditional panel for sample size calculation
                conditionalPanel(condition="input.select == 2",
                                 numericInput("powermin",
@@ -258,7 +296,18 @@ ui <- fluidPage(
 server <- function(input, output){
   output$powerplot <- renderPlot({
     #   print(input$select)
-    if(input$select==1) {
+    if((input$select==1)&(input$effect_calc==1)){
+      #need to write another function to do crossings of f and n
+      powerdata <- powerfromfn(input$fmin, input$fmax, input$G,
+                                 input$nmin, input$nmax)
+      ggplot(powerdata, aes(x = n, y = power, color = factor(cohensf))) + 
+        geom_line() + 
+        theme_minimal() + 
+        labs(
+          x = "Number in each group (n)",
+          y = "Power"
+        )
+    }else if((input$select==1)&(input$effect_calc==2)){
       powerdata <- cohensfminmax(input$Delta, input$sd, input$G,
                                  input$nmin, input$nmax)
       ggplot(powerdata, aes(x = n, y = power, color = factor(cohensf))) + 
