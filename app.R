@@ -11,7 +11,7 @@ library(ggplot2)
 library(pwr)
 
 
-cohensfminmax <- function(Delta=1, sd=1, G=3, nmin = 2, nmax = 20){
+cohensfminmax <- function(Delta=1, sd=1, G=3, nmin = 2, nmax = 20, ninc = 1){
   #calculate min cohen's f
   sdm.min <- Delta/sqrt(2*G)
   fmin <- sdm.min/sd
@@ -30,7 +30,7 @@ cohensfminmax <- function(Delta=1, sd=1, G=3, nmin = 2, nmax = 20){
   
   #Make power curves
   cohensf <- c(fmin, fmax, 0.1, 0.25, 0.4)
-  n <- seq(nmin, nmax, by = 1)
+  n <- seq(nmin, nmax, by = ninc)
   
   powerdata <- crossing(cohensf, n) %>%
     rowwise() %>%
@@ -43,10 +43,11 @@ cohensfminmax <- function(Delta=1, sd=1, G=3, nmin = 2, nmax = 20){
   
 }
 
-powerfromfn <- function(fmin, fmax, G=3, nmin = 2, nmax = 20){
+#to generate table for power calc from n and effect size
+powerfromfn <- function(fmin, fmax, G=3, nmin = 2, nmax = 20, ninc = 1){
   
   cohensf <- c(fmin, fmax, 0.1, 0.25, 0.4)
-  n <- seq(nmin, nmax, by = 1)
+  n <- seq(nmin, nmax, by = ninc)
   
   powerdata <- crossing(cohensf, n) %>%
     rowwise() %>%
@@ -58,9 +59,28 @@ powerfromfn <- function(fmin, fmax, G=3, nmin = 2, nmax = 20){
     ) %>% tidy() %>% pull(power) )  
   
 }
+#for sample size calculation from power and effect size--cohen's f
+nfrompowerf <- function(powermin=0.7, powermax=0.9, powerinc = 0.01, 
+                       fmin=0.1, fmax=1.5, G=3){
+  
+  cohensf <- c(fmin, fmax, 0.1, 0.25, 0.4)
+  #n <- c(seq(2, 10, by = 1), seq(12, 20, by = 2))
+  power <- seq(powermin, powermax, by = powerinc)
+  
+  powerdata <- crossing(cohensf, power) %>%
+    rowwise() %>%
+    mutate(n= pwr::pwr.anova.test(
+      f=cohensf,
+      k=G,
+      power = power,
+      sig.level = 0.05)
+      %>% 
+        tidy() %>% 
+        pull(n) )
+} 
 
-
-nfrompower <- function(powermin=0.7, powermax=0.9, 
+#for sample size calculation from power and effect size
+nfrompower <- function(powermin=0.7, powermax=0.9, powerinc = 0.01, 
                        Delta=1, sd=1, G=3){
   sdm.min <- Delta/sqrt(2*G)
   fmin <- sdm.min/sd
@@ -80,7 +100,7 @@ nfrompower <- function(powermin=0.7, powermax=0.9,
   #Make power curves
   cohensf <- c(fmin, fmax, 0.1, 0.25, 0.4)
   #n <- c(seq(2, 10, by = 1), seq(12, 20, by = 2))
-  power <- seq(powermin, powermax, by = 0.01)
+  power <- seq(powermin, powermax, by = powerinc)
   
   powerdata <- crossing(cohensf, power) %>%
     rowwise() %>%
@@ -96,10 +116,10 @@ nfrompower <- function(powermin=0.7, powermax=0.9,
 
 
 #changing from function(nmin, nmax, G)
-effectsize <- function(nmin, nmax, powermin, powermax, G){
-  n <- seq(nmin, nmax, by = 1)
+effectsize <- function(nmin=3, nmax=20, ninc=1, powermin=0.75, powermax=0.90, powerinc = 0.05, G=3){
+  n <- seq(nmin, nmax, by = ninc)
   #changing from c(0.6, 0.7, 0.8, 0.9) 
-  power <- c(seq(powermin, powermax, by = 0.05))
+  power <- seq(powermin, powermax, by = powerinc)
   
   powerdata <- crossing(n, power) %>%
     rowwise() %>%
@@ -133,16 +153,22 @@ ui <- fluidPage(
                             value=3),
                #conditional panel for power calculation
                conditionalPanel(condition="input.select == 1",
-                                numericInput("nmin",
+                                numericInput("nmin1",
                                              "Minimum n per group",
                                              min = 2,
                                              max = 200,
                                              value = 3),
-                                numericInput("nmax",
+                                numericInput("nmax1",
                                              "Maximum n per group",
                                              min=3,
                                              max=300,
                                              value=20),
+                                numericInput("ninc1",
+                                             "Increment for n",
+                                             min=1,
+                                             max=100,
+                                             value=1),
+                                
                #select whether to enter delta and sd, or cohen's f
                selectInput("effect_calc",
                            h3("Select input type:"),
@@ -150,24 +176,27 @@ ui <- fluidPage(
                                           "Difference in means" = 2)),
                    #conditional panel for cohen's f
                  conditionalPanel(condition="input.effect_calc == 1",
-                                  numericInput("fmin",
+                                  p("Rule of thumb: 0.01 = small effect size,
+                                  0.25 = medium effect size, 
+                                  0.4 = large effect size."),
+                                  numericInput("fmin1",
                                                "Minimum Cohen's f",
                                                min = 0.01,
                                                max = 5,
                                                value = 0.1),
-                                  numericInput("fmax",
+                                  numericInput("fmax1",
                                                "Maximum Cohen's f",
                                                min=0.1,
                                                max=10,
                                                value=0.4)),
                #conditional panel for mean/sd
                conditionalPanel(condition="input.effect_calc == 2",
-                                numericInput("Delta",
+                                numericInput("Delta1",
                                              "Minimum difference in means (delta):",
                                              min = 0.01,
                                              max = 10,
                                              value = 1),
-                                numericInput("sd",
+                                numericInput("sd1",
                                              "Standard deviation",
                                              min = 0.01,
                                              max = 10,
@@ -176,48 +205,88 @@ ui <- fluidPage(
                                 
                #conditional panel for sample size calculation
                conditionalPanel(condition="input.select == 2",
-                                numericInput("powermin",
+                                numericInput("powermin2",
                                              "Minimum power",
                                              min = 0.1,
                                              max = 1,
                                              value = 0.75),
-                                numericInput("powermax",
+                                numericInput("powermax2",
                                              "Maximum power",
                                              min=0.1,
                                              max=1,
                                              value=0.9),
-                                numericInput("Delta",
-                                             "Minimum difference in means (delta):",
-                                             min = 0.01,
-                                             max = 10,
-                                             value = 1),
-                                numericInput("sd",
-                                             "Standard deviation",
-                                             min = 0.01,
-                                             max = 10,
-                                             value = 1)),
+                                numericInput("powerinc2",
+                                             "Increment for power",
+                                             min=0.001,
+                                             max=0.1,
+                                             value=0.01),
+                                #select whether to enter delta and sd, or cohen's f
+                                selectInput("effect_calc2",
+                                            h3("Select input type:"),
+                                            choices = list("Cohen's f" = 1, 
+                                                           "Difference in means" = 2)),
+                        
+                                #conditional panel for cohen's f
+                                conditionalPanel(condition="input.effect_calc2 == 1",
+                                                 p("Rule of thumb: 0.01 = small effect size,
+                                  0.25 = medium effect size, 
+                                  0.4 = large effect size."),
+                                                 numericInput("fmin2",
+                                                              "Minimum Cohen's f",
+                                                              min = 0.01,
+                                                              max = 5,
+                                                              value = 0.1),
+                                                 numericInput("fmax2",
+                                                              "Maximum Cohen's f",
+                                                              min=0.1,
+                                                              max=10,
+                                                              value=0.4)),
+                                #conditional panel for mean/sd
+                                conditionalPanel(condition="input.effect_calc2 == 2",
+                                                 numericInput("Delta2",
+                                                              "Minimum difference in means (delta):",
+                                                              min = 0.01,
+                                                              max = 10,
+                                                              value = 1),
+                                                 numericInput("sd2",
+                                                              "Standard deviation",
+                                                              min = 0.01,
+                                                              max = 10,
+                                                              value = 1))
+               ),
+               
                #conditional panel for effect size calculation
                conditionalPanel(condition="input.select == 3",
-                                numericInput("powermin",
+                                numericInput("powermin3",
                                              "Minimum power",
                                              min = 0.1,
                                              max = 1,
                                              value = 0.75),
-                                numericInput("powermax",
+                                numericInput("powermax3",
                                              "Maximum power",
                                              min=0.1,
                                              max=1,
                                              value=0.9),
-                                numericInput("nmin",
+                                numericInput("powerinc3",
+                                             "Increment for power",
+                                             min=0.001,
+                                             max=0.1,
+                                             value=0.01),
+                                numericInput("nmin3",
                                              "Minimum n per group",
                                              min = 2,
                                              max = 200,
                                              value = 3),
-                                numericInput("nmax",
+                                numericInput("nmax3",
                                              "Maximum n per group",
                                              min=3,
                                              max=300,
-                                             value=20))           
+                                             value=20),
+               numericInput("ninc3",
+                            "Increment for n",
+                            min=1,
+                            max=100,
+                            value=1))
   ),
   mainPanel(
     tabsetPanel(id = "main_tab",
@@ -279,6 +348,11 @@ ui <- fluidPage(
                            p(h5("Effect Size"),
                              "This option calculates the minimum detectable effect size based on selected values of power,
                              sample size per group, and number of groups.  Effect size is reported as a value of Cohen's f."),
+                           p(h5("Note about Effect Size"), 
+                             "The rule of thumb for effect size given by Cohen for ANOVA is: small effect: 0.1, medium effect: 0.25,
+                             large effect: 0.4.  However, these effect sizes may not be meaningful in the context of your experiment.
+                             We have included the option to calculate minimum and maximum possible values of Cohen's f given a minimum 
+                             difference in means between two groups, so that researchers can see how their expected effect sizes compare.")
                            ),
                          p("Created by Shauna Rakshe with guidance from Meike Niederhausen and Jessica Minnier."),
                          p("Please contact rakshe@ohsu.edu with questions or feedback.")
@@ -298,54 +372,80 @@ server <- function(input, output){
     #   print(input$select)
     if((input$select==1)&(input$effect_calc==1)){
       #need to write another function to do crossings of f and n
-      powerdata <- powerfromfn(input$fmin, input$fmax, input$G,
-                                 input$nmin, input$nmax)
-      ggplot(powerdata, aes(x = n, y = power, color = factor(cohensf))) + 
+      powerdata <- powerfromfn(input$fmin1, input$fmax1, input$G,
+                                 input$nmin1, input$nmax1, input$ninc1)
+      ggplot(powerdata, aes(x = n, y = power, color = factor(round(cohensf,3)),
+                            linetype=factor(ifelse(cohensf==0.1|cohensf==0.25|cohensf==0.4, 1, 0)))) + 
         geom_line() + 
         theme_minimal() + 
         labs(
           x = "Number in each group (n)",
-          y = "Power"
-        )
+          y = "Power",
+          color = "Cohen's f"
+        ) +
+        guides(linetype = F)
     }else if((input$select==1)&(input$effect_calc==2)){
-      powerdata <- cohensfminmax(input$Delta, input$sd, input$G,
-                                 input$nmin, input$nmax)
-      ggplot(powerdata, aes(x = n, y = power, color = factor(cohensf))) + 
+      powerdata <- cohensfminmax(input$Delta1, input$sd1, input$G,
+                                 input$nmin1, input$nmax1, input$ninc1)
+      ggplot(powerdata, aes(x = n, y = power, color = factor(round(cohensf,3)),
+                            linetype=factor(ifelse(cohensf==0.1|cohensf==0.25|cohensf==0.4, 1, 0)))) + 
         geom_line() + 
         theme_minimal() + 
         labs(
           x = "Number in each group (n)",
-          y = "Power"
-        )
-    }else if(input$select==2){
-      powerdata <- nfrompower(input$powermin, input$powermax,
-                              input$Delta, input$sd, input$G)
-      ggplot(powerdata, aes(x = power, y = n, color = factor(cohensf))) +
+          y = "Power",
+          color = "Cohen's f"
+        ) +
+        guides(linetype = F)
+    }else if((input$select==2)&(input$effect_calc2==1)){
+      powerdata <- nfrompowerf(input$powermin2, input$powermax2, input$powerinc3,
+                               input$fmin2, input$fmax2, input$G)
+      ggplot(powerdata, aes(x = power, y = n, color = factor(round(cohensf,3)),
+                            linetype=factor(ifelse(cohensf==0.1|cohensf==0.25|cohensf==0.4, 1, 0)))) +
         geom_line() +
         theme_minimal() +
         labs(
           x = "Power",
-          y = "Number in each group (n)"
-        )
+          y = "Number in each group (n)",
+          color = "Cohen's f"
+        ) +
+        guides(linetype = F)
+      
+    }else if((input$select==2)&(input$effect_calc2==2)){
+      powerdata <- nfrompower(input$powermin2, input$powermax2, input$powerinc2,
+                              input$Delta2, input$sd2, input$G)
+      ggplot(powerdata, aes(x = power, y = n, color = factor(round(cohensf,3)),
+                            linetype=factor(ifelse(cohensf==0.1|cohensf==0.25|cohensf==0.4, 1, 0)))) +
+        geom_line() +
+        theme_minimal() +
+        labs(
+          x = "Power",
+          y = "Number in each group (n)",
+          color = "Cohen's f"
+        ) +
+        guides(linetype = F)
     }else {
-      powerdata <- effectsize(input$nmin, input$nmax,
-                              input$powermin, input$powermax,
+      powerdata <- effectsize(input$nmin3, input$nmax3, input$ninc3,
+                              input$powermin3, input$powermax3, input$powerinc3,
                               input$G)
       ggplot(powerdata, aes(x = n, y = f, color = factor(power))) +
         geom_line() +
         theme_minimal() +
         labs(
           x = "Number in each group (n)",
-          y = "Detectable Cohen's f"
+          y = "Detectable Cohen's f",
+          color = "Power"
         )
     }
   })
   
   output$text <- renderText({
     if(input$select ==1){
-      "Table columns are values of Cohen's f. Table cells are values of power."
+      "Table columns are values of Cohen's f. Table cells are values of power.
+      User-input values of effect size shown in bold, rule-of-thumb values in dotted lines."
     }else if(input$select ==2){
-      "Table columns are values of power. Table cells are values of n per group."
+      "Table columns are values of power. Table cells are values of n per group.
+      User-input values of effect size shown in bold, rule-of-thumb values in dotted lines."
     }else{
       "Table columns are values of power. Table cells are values of Cohen's f."
     }
@@ -353,26 +453,27 @@ server <- function(input, output){
   
   output$table <- renderDataTable({
     if(input$select==1) {
-      powerdata <- cohensfminmax(input$Delta, input$sd, input$G,
-                                 input$nmin, input$nmax) %>% 
+      powerdata <- cohensfminmax(input$Delta1, input$sd1, input$G,
+                                 input$nmin1, input$nmax1, input$ninc1) %>% 
         mutate(cohensf = round(cohensf, digits = 2),
                power = round(power, digits = 4)) %>%
         pivot_wider(names_from = "cohensf",
                     values_from = "power") 
     }else if(input$select==2){
-      powerdata <- nfrompower(input$powermin, input$powermax,
-                              input$Delta, input$sd, input$G) %>%
+      powerdata <- nfrompower(input$powermin2, input$powermax2, input$powerinc2,
+                              input$Delta2, input$sd2, input$G) %>%
         mutate(cohensf = round(cohensf, digits = 2),
                n = round(n)) %>%
         pivot_wider(names_from = "power",
                     values_from = "n") 
     }else{
-      powerdata <-effectsize(input$nmin, input$nmax, 
-                             input$powermin, input$powermax,
+      powerdata <-effectsize(input$nmin3, input$nmax3, input$ninc3,
+                             input$powermin3, input$powermax3, input$powerinc3,
                              input$G) %>%
         mutate(f = round(f, digits = 2)) %>%
         pivot_wider(names_from = "power",
-                    values_from = "f") 
+                    values_from = "f") %>%
+        rename("n per group" = n)
     }
     
   })
