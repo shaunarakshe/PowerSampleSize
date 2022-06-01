@@ -115,7 +115,7 @@ nfrompower <- function(powermin=0.7, powermax=0.9, powerinc = 0.01,
 } 
 
 
-#changing from function(nmin, nmax, G)
+
 effectsize <- function(nmin=3, nmax=20, ninc=1, powermin=0.75, powermax=0.90, powerinc = 0.05, G=3){
   n <- seq(nmin, nmax, by = ninc)
   #changing from c(0.6, 0.7, 0.8, 0.9) 
@@ -452,14 +452,28 @@ server <- function(input, output){
   })
   
   output$table <- renderDataTable({
-    if(input$select==1) {
+    if((input$select==1)&(input$effect_calc==1)){
+      powerdata <- powerfromfn(input$fmin1, input$fmax1, input$G,
+                               input$nmin1, input$nmax1, input$ninc1) %>%
+        mutate(cohensf = round(cohensf, digits = 2),
+               power = round(power, digits = 4)) %>%
+        pivot_wider(names_from = "cohensf",
+                    values_from = "power") 
+    }else if((input$select==1)&(input$effect_calc==2)){
       powerdata <- cohensfminmax(input$Delta1, input$sd1, input$G,
                                  input$nmin1, input$nmax1, input$ninc1) %>% 
         mutate(cohensf = round(cohensf, digits = 2),
                power = round(power, digits = 4)) %>%
         pivot_wider(names_from = "cohensf",
                     values_from = "power") 
-    }else if(input$select==2){
+    }else if((input$select==2)&(input$effect_calc==1)){
+      powerdata <- nfrompowerf(input$powermin2, input$powermax2, input$powerinc3,
+                               input$fmin2, input$fmax2, input$G)%>%
+        mutate(cohensf = round(cohensf, digits = 2),
+               n = round(n)) %>%
+        pivot_wider(names_from = "power",
+                    values_from = "n") 
+    }else if((input$select==2)&(input$effect_calc==2)){
       powerdata <- nfrompower(input$powermin2, input$powermax2, input$powerinc2,
                               input$Delta2, input$sd2, input$G) %>%
         mutate(cohensf = round(cohensf, digits = 2),
