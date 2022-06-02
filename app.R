@@ -28,7 +28,7 @@ cohensfminmax <- function(Delta=1, sd=1, G=3, nmin = 2, nmax = 20, ninc = 1){
   )
   fmax <- sdm.max/sd
   
-  #Make power curves
+  #Make data
   cohensf <- c(fmin, fmax, 0.1, 0.25, 0.4)
   n <- seq(nmin, nmax, by = ninc)
   
@@ -59,12 +59,12 @@ powerfromfn <- function(fmin, fmax, G=3, nmin = 2, nmax = 20, ninc = 1){
     ) %>% tidy() %>% pull(power) )  
   
 }
+
 #for sample size calculation from power and effect size--cohen's f
 nfrompowerf <- function(powermin=0.7, powermax=0.9, powerinc = 0.01, 
                        fmin=0.1, fmax=1.5, G=3){
   
   cohensf <- c(fmin, fmax, 0.1, 0.25, 0.4)
-  #n <- c(seq(2, 10, by = 1), seq(12, 20, by = 2))
   power <- seq(powermin, powermax, by = powerinc)
   
   powerdata <- crossing(cohensf, power) %>%
@@ -115,10 +115,9 @@ nfrompower <- function(powermin=0.7, powermax=0.9, powerinc = 0.01,
 } 
 
 
-
+#calculate minimum detectable effect size
 effectsize <- function(nmin=3, nmax=20, ninc=1, powermin=0.75, powermax=0.90, powerinc = 0.05, G=3){
   n <- seq(nmin, nmax, by = ninc)
-  #changing from c(0.6, 0.7, 0.8, 0.9) 
   power <- seq(powermin, powermax, by = powerinc)
   
   powerdata <- crossing(n, power) %>%
@@ -136,8 +135,10 @@ ui <- fluidPage(
   
   #Title
   titlePanel("Power & Sample Size for 1-way ANOVA"),
-  #withMaxJax(),
-  
+  hr(),
+  actionButton("calculate", "Calculate", 
+               class = "btn-warning"),
+  hr(),
   
   #Sidebar panel 
   sidebarPanel(fluid = T,
@@ -154,17 +155,17 @@ ui <- fluidPage(
                #conditional panel for power calculation
                conditionalPanel(condition="input.select == 1",
                                 numericInput("nmin1",
-                                             "Minimum n per group",
+                                             "Minimum n per group (integer)",
                                              min = 2,
                                              max = 200,
                                              value = 3),
                                 numericInput("nmax1",
-                                             "Maximum n per group",
+                                             "Maximum n per group (integer)",
                                              min=3,
                                              max=300,
                                              value=20),
                                 numericInput("ninc1",
-                                             "Increment for n",
+                                             "Increment for n (integer)",
                                              min=1,
                                              max=100,
                                              value=1),
@@ -292,8 +293,21 @@ ui <- fluidPage(
     tabsetPanel(id = "main_tab",
                 type = "tabs",
                 tabPanel("Results", 
+                         p(h3("Graphical output:"),
+                           "For power and sample size curves only:",
+                           tags$br(),
+                           "Solid lines: minimum and maximum values of Cohen's f 
+                           derived from user input",
+                           tags$br(),
+                           "Dotted lines: rule-of-thumb values of Cohen's f:",
+                           tags$br(),
+                           "0.01 = small effect size,
+                            0.25 = medium effect size, 
+                            0.4 = large effect size."),
                          plotOutput("powerplot"),
-                         textOutput("text"),
+                         p(h3("Datatable output:")),
+                         h4(textOutput("text")),
+                         downloadButton("downloadData", "Download"),
                          dataTableOutput("table")),
                 tabPanel("Documentation",
                          tags$br(),
@@ -368,81 +382,106 @@ ui <- fluidPage(
 )
 
 server <- function(input, output){
-  output$powerplot <- renderPlot({
-    #   print(input$select)
-    if((input$select==1)&(input$effect_calc==1)){
-      #need to write another function to do crossings of f and n
-      powerdata <- powerfromfn(input$fmin1, input$fmax1, input$G,
+  
+  
+  #calculate powerdata df based on selected inputs and calcs
+  #only calculate when actionbutton gets pushed
+      powerdata <- eventReactive(input$calculate,{
+        if((input$select==1)&(input$effect_calc==1)){
+          
+        powerfromfn(input$fmin1, input$fmax1, input$G,
                                  input$nmin1, input$nmax1, input$ninc1)
-      ggplot(powerdata, aes(x = n, y = power, color = factor(round(cohensf,3)),
-                            linetype=factor(ifelse(cohensf==0.1|cohensf==0.25|cohensf==0.4, 1, 0)))) + 
-        geom_line() + 
-        theme_minimal() + 
-        labs(
-          x = "Number in each group (n)",
-          y = "Power",
-          color = "Cohen's f"
-        ) +
-        guides(linetype = F)
     }else if((input$select==1)&(input$effect_calc==2)){
-      powerdata <- cohensfminmax(input$Delta1, input$sd1, input$G,
-                                 input$nmin1, input$nmax1, input$ninc1)
-      ggplot(powerdata, aes(x = n, y = power, color = factor(round(cohensf,3)),
-                            linetype=factor(ifelse(cohensf==0.1|cohensf==0.25|cohensf==0.4, 1, 0)))) + 
-        geom_line() + 
-        theme_minimal() + 
-        labs(
-          x = "Number in each group (n)",
-          y = "Power",
-          color = "Cohen's f"
-        ) +
-        guides(linetype = F)
+        cohensfminmax(input$Delta1, input$sd1, input$G,
+             input$nmin1, input$nmax1, input$ninc1)
+
     }else if((input$select==2)&(input$effect_calc2==1)){
-      powerdata <- nfrompowerf(input$powermin2, input$powermax2, input$powerinc3,
-                               input$fmin2, input$fmax2, input$G)
-      ggplot(powerdata, aes(x = power, y = n, color = factor(round(cohensf,3)),
-                            linetype=factor(ifelse(cohensf==0.1|cohensf==0.25|cohensf==0.4, 1, 0)))) +
-        geom_line() +
-        theme_minimal() +
-        labs(
-          x = "Power",
-          y = "Number in each group (n)",
-          color = "Cohen's f"
-        ) +
-        guides(linetype = F)
       
+    nfrompowerf(input$powermin2, input$powermax2, input$powerinc3,
+                               input$fmin2, input$fmax2, input$G)
+  
     }else if((input$select==2)&(input$effect_calc2==2)){
-      powerdata <- nfrompower(input$powermin2, input$powermax2, input$powerinc2,
+      nfrompower(input$powermin2, input$powermax2, input$powerinc2,
                               input$Delta2, input$sd2, input$G)
-      ggplot(powerdata, aes(x = power, y = n, color = factor(round(cohensf,3)),
-                            linetype=factor(ifelse(cohensf==0.1|cohensf==0.25|cohensf==0.4, 1, 0)))) +
-        geom_line() +
-        theme_minimal() +
-        labs(
-          x = "Power",
-          y = "Number in each group (n)",
-          color = "Cohen's f"
-        ) +
-        guides(linetype = F)
-    }else {
-      powerdata <- effectsize(input$nmin3, input$nmax3, input$ninc3,
+
+    }else{
+      effectsize(input$nmin3, input$nmax3, input$ninc3,
                               input$powermin3, input$powermax3, input$powerinc3,
-                              input$G)
-      ggplot(powerdata, aes(x = n, y = f, color = factor(power))) +
-        geom_line() +
-        theme_minimal() +
-        labs(
-          x = "Number in each group (n)",
-          y = "Detectable Cohen's f",
-          color = "Power"
-        )
-    }
+                              input$G)}
   })
   
+ 
+  
+  
+ output$powerplot <- renderPlot({   
+   
+      
+      
+      if((input$select==1)&(input$effect_calc==1)){ 
+   powerdata() %>%
+          ggplot(aes(x = n, y = power, color = factor(round(cohensf,3)),
+          linetype=factor(ifelse(cohensf==0.1|cohensf==0.25|cohensf==0.4, 1, 0)))) + 
+          geom_line() + 
+         theme_minimal() + 
+          labs(
+          x = "Number in each group (n)",
+          y = "Power",
+          color = "Cohen's f"
+          ) +
+          guides(linetype = F)
+ 
+  }else if((input$select==1)&(input$effect_calc==2)){
+     ggplot(powerdata(), aes(x = n, y = power, color = factor(round(cohensf,3)),
+       linetype=factor(ifelse(cohensf==0.1|cohensf==0.25|cohensf==0.4, 1, 0)))) + 
+        geom_line() + 
+         theme_minimal() + 
+         labs(
+          x = "Number in each group (n)",
+          y = "Power",
+          color = "Cohen's f"
+          ) +
+         guides(linetype = F)
+    }else if((input$select==2)&(input$effect_calc2==1)){
+      
+    ggplot(powerdata(), aes(x = power, y = n, color = factor(round(cohensf,3)),
+       linetype=factor(ifelse(cohensf==0.1|cohensf==0.25|cohensf==0.4, 1, 0)))) +
+       geom_line() +
+       theme_minimal() +
+       labs(
+       x = "Power",
+       y = "Number in each group (n)",
+       color = "Cohen's f"
+       ) +
+       guides(linetype = F)
+    }else if((input$select==2)&(input$effect_calc2==2)){
+  
+     ggplot(powerdata(), aes(x = power, y = n, color = factor(round(cohensf,3)),
+       linetype=factor(ifelse(cohensf==0.1|cohensf==0.25|cohensf==0.4, 1, 0)))) +
+        geom_line() +
+         theme_minimal() +
+        labs(
+        x = "Power",
+        y = "Number in each group (n)",
+         color = "Cohen's f"
+         ) +
+        guides(linetype = F)
+    }else{
+      
+      ggplot(powerdata(), aes(x = n, y = f, color = factor(power))) +
+       geom_line() +
+       theme_minimal() +
+       labs(
+       x = "Number in each group (n)",
+       y = "Detectable Cohen's f",
+       color = "Power"
+       )
+    }
+
+  })
+
   output$text <- renderText({
     if(input$select ==1){
-      "Table columns are values of Cohen's f. Table cells are values of power.
-      User-input values of effect size shown in bold, rule-of-thumb values in dotted lines."
+      "Table columns are values of Cohen's f. Table cells are values of power."
     }else if(input$select ==2){
       "Table columns are values of power. Table cells are values of n per group.
       User-input values of effect size shown in bold, rule-of-thumb values in dotted lines."
@@ -453,37 +492,36 @@ server <- function(input, output){
   
   output$table <- renderDataTable({
     if((input$select==1)&(input$effect_calc==1)){
-      powerdata <- powerfromfn(input$fmin1, input$fmax1, input$G,
-                               input$nmin1, input$nmax1, input$ninc1) %>%
-        mutate(cohensf = round(cohensf, digits = 2),
+
+      powerdata() %>%  
+      mutate(cohensf = round(cohensf, digits = 2),
                power = round(power, digits = 4)) %>%
         pivot_wider(names_from = "cohensf",
                     values_from = "power") 
     }else if((input$select==1)&(input$effect_calc==2)){
-      powerdata <- cohensfminmax(input$Delta1, input$sd1, input$G,
-                                 input$nmin1, input$nmax1, input$ninc1) %>% 
-        mutate(cohensf = round(cohensf, digits = 2),
+
+      powerdata() %>%  
+      mutate(cohensf = round(cohensf, digits = 2),
                power = round(power, digits = 4)) %>%
         pivot_wider(names_from = "cohensf",
                     values_from = "power") 
     }else if((input$select==2)&(input$effect_calc==1)){
-      powerdata <- nfrompowerf(input$powermin2, input$powermax2, input$powerinc3,
-                               input$fmin2, input$fmax2, input$G)%>%
-        mutate(cohensf = round(cohensf, digits = 2),
+ 
+      powerdata() %>%  
+      mutate(cohensf = round(cohensf, digits = 2),
                n = round(n)) %>%
         pivot_wider(names_from = "power",
                     values_from = "n") 
     }else if((input$select==2)&(input$effect_calc==2)){
-      powerdata <- nfrompower(input$powermin2, input$powermax2, input$powerinc2,
-                              input$Delta2, input$sd2, input$G) %>%
-        mutate(cohensf = round(cohensf, digits = 2),
+    
+      powerdata() %>%  
+      mutate(cohensf = round(cohensf, digits = 2),
                n = round(n)) %>%
         pivot_wider(names_from = "power",
                     values_from = "n") 
     }else{
-      powerdata <-effectsize(input$nmin3, input$nmax3, input$ninc3,
-                             input$powermin3, input$powermax3, input$powerinc3,
-                             input$G) %>%
+      
+      powerdata() %>%
         mutate(f = round(f, digits = 2)) %>%
         pivot_wider(names_from = "power",
                     values_from = "f") %>%
@@ -492,7 +530,13 @@ server <- function(input, output){
     
   })
   
-  
+  #downloadable csv of table
+  output$downloadData <- downloadHandler(
+    filename = "powerdata.csv",
+    content = function(file){
+      write.csv(powerdata(), file, row.names = F)
+    }
+  )
   
   
 }
