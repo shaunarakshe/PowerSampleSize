@@ -386,39 +386,43 @@ server <- function(input, output){
   
   #calculate powerdata df based on selected inputs and calcs
   #only calculate when actionbutton gets pushed
-      powerdata <- eventReactive(input$calculate,{
-        if((input$select==1)&(input$effect_calc==1)){
+#power panel
+      powerdata1 <- eventReactive(input$calculate,{
+        if(input$effect_calc==1){
           
         powerfromfn(input$fmin1, input$fmax1, input$G,
                                  input$nmin1, input$nmax1, input$ninc1)
-    }else if((input$select==1)&(input$effect_calc==2)){
+    }else{
         cohensfminmax(input$Delta1, input$sd1, input$G,
              input$nmin1, input$nmax1, input$ninc1)
-
-    }else if((input$select==2)&(input$effect_calc2==1)){
-      
-    nfrompowerf(input$powermin2, input$powermax2, input$powerinc3,
-                               input$fmin2, input$fmax2, input$G)
-  
-    }else if((input$select==2)&(input$effect_calc2==2)){
-      nfrompower(input$powermin2, input$powermax2, input$powerinc2,
-                              input$Delta2, input$sd2, input$G)
-
-    }else{
-      effectsize(input$nmin3, input$nmax3, input$ninc3,
-                              input$powermin3, input$powermax3, input$powerinc3,
-                              input$G)}
+    }
   })
-  
+
+#sample size panel
+ powerdata2 <- eventReactive(input$calculate,{
+   if(input$effect_calc2==1){
+   
+   nfrompowerf(input$powermin2, input$powermax2, input$powerinc3,
+               input$fmin2, input$fmax2, input$G)
+ }else{
+   nfrompower(input$powermin2, input$powermax2, input$powerinc2,
+              input$Delta2, input$sd2, input$G)
+ }
+ })
  
-  
+ #effect size panel
+ powerdata3 <-eventReactive(input$calculate,{
+   effectsize(input$nmin3, input$nmax3, input$ninc3,
+                         input$powermin3, input$powermax3, input$powerinc3,
+                         input$G)
+})
   
  output$powerplot <- renderPlot({   
    
       
       
       if((input$select==1)&(input$effect_calc==1)){ 
-   powerdata() %>%
+   powerdata1() %>%
           ggplot(aes(x = n, y = power, color = factor(round(cohensf,3)),
           linetype=factor(ifelse(cohensf==0.1|cohensf==0.25|cohensf==0.4, 1, 0)))) + 
           geom_line() + 
@@ -431,7 +435,7 @@ server <- function(input, output){
           guides(linetype = F)
  
   }else if((input$select==1)&(input$effect_calc==2)){
-     ggplot(powerdata(), aes(x = n, y = power, color = factor(round(cohensf,3)),
+     ggplot(powerdata1(), aes(x = n, y = power, color = factor(round(cohensf,3)),
        linetype=factor(ifelse(cohensf==0.1|cohensf==0.25|cohensf==0.4, 1, 0)))) + 
         geom_line() + 
          theme_minimal() + 
@@ -443,7 +447,7 @@ server <- function(input, output){
          guides(linetype = F)
     }else if((input$select==2)&(input$effect_calc2==1)){
       
-    ggplot(powerdata(), aes(x = power, y = n, color = factor(round(cohensf,3)),
+    ggplot(powerdata2(), aes(x = power, y = n, color = factor(round(cohensf,3)),
        linetype=factor(ifelse(cohensf==0.1|cohensf==0.25|cohensf==0.4, 1, 0)))) +
        geom_line() +
        theme_minimal() +
@@ -455,7 +459,7 @@ server <- function(input, output){
        guides(linetype = F)
     }else if((input$select==2)&(input$effect_calc2==2)){
   
-     ggplot(powerdata(), aes(x = power, y = n, color = factor(round(cohensf,3)),
+     ggplot(powerdata2(), aes(x = power, y = n, color = factor(round(cohensf,3)),
        linetype=factor(ifelse(cohensf==0.1|cohensf==0.25|cohensf==0.4, 1, 0)))) +
         geom_line() +
          theme_minimal() +
@@ -467,7 +471,7 @@ server <- function(input, output){
         guides(linetype = F)
     }else{
       
-      ggplot(powerdata(), aes(x = n, y = f, color = factor(power))) +
+      ggplot(powerdata3(), aes(x = n, y = f, color = factor(power))) +
        geom_line() +
        theme_minimal() +
        labs(
@@ -493,35 +497,35 @@ server <- function(input, output){
   output$table <- renderDataTable({
     if((input$select==1)&(input$effect_calc==1)){
 
-      powerdata() %>%  
+      powerdata1() %>%  
       mutate(cohensf = round(cohensf, digits = 2),
                power = round(power, digits = 4)) %>%
         pivot_wider(names_from = "cohensf",
                     values_from = "power") 
     }else if((input$select==1)&(input$effect_calc==2)){
 
-      powerdata() %>%  
+      powerdata1() %>%  
       mutate(cohensf = round(cohensf, digits = 2),
                power = round(power, digits = 4)) %>%
         pivot_wider(names_from = "cohensf",
                     values_from = "power") 
     }else if((input$select==2)&(input$effect_calc==1)){
  
-      powerdata() %>%  
+      powerdata2() %>%  
       mutate(cohensf = round(cohensf, digits = 2),
                n = round(n)) %>%
         pivot_wider(names_from = "power",
                     values_from = "n") 
     }else if((input$select==2)&(input$effect_calc==2)){
     
-      powerdata() %>%  
+      powerdata2() %>%  
       mutate(cohensf = round(cohensf, digits = 2),
                n = round(n)) %>%
         pivot_wider(names_from = "power",
                     values_from = "n") 
     }else{
       
-      powerdata() %>%
+      powerdata3() %>%
         mutate(f = round(f, digits = 2)) %>%
         pivot_wider(names_from = "power",
                     values_from = "f") %>%
@@ -531,6 +535,7 @@ server <- function(input, output){
   })
   
   #downloadable csv of table
+  #fix this for 3 different powerdatas
   output$downloadData <- downloadHandler(
     filename = "powerdata.csv",
     content = function(file){
