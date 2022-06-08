@@ -10,7 +10,8 @@ library(broom)
 library(ggplot2)
 library(pwr)
 
-
+#------functions----------------------------------------------
+#calculate power using n, difference in means and SD
 cohensfminmax <- function(Delta=1, sd=1, G=3, nmin = 2, nmax = 20, ninc = 1){
   #calculate min cohen's f
   sdm.min <- Delta/sqrt(2*G)
@@ -43,7 +44,7 @@ cohensfminmax <- function(Delta=1, sd=1, G=3, nmin = 2, nmax = 20, ninc = 1){
   
 }
 
-#to generate table for power calc from n and effect size
+#calculate power using n and effect size
 powerfromfn <- function(fmin, fmax, G=3, nmin = 2, nmax = 20, ninc = 1){
   
   cohensf <- c(fmin, fmax, 0.1, 0.25, 0.4)
@@ -60,7 +61,7 @@ powerfromfn <- function(fmin, fmax, G=3, nmin = 2, nmax = 20, ninc = 1){
   
 }
 
-#for sample size calculation from power and effect size--cohen's f
+#calculate sample size using power and effect size
 nfrompowerf <- function(powermin=0.7, powermax=0.9, powerinc = 0.01, 
                        fmin=0.1, fmax=1.5, G=3){
   
@@ -79,7 +80,7 @@ nfrompowerf <- function(powermin=0.7, powermax=0.9, powerinc = 0.01,
         pull(n) )
 } 
 
-#for sample size calculation from power and effect size
+#calculate sample size using power, difference in means, and SD
 nfrompower <- function(powermin=0.7, powermax=0.9, powerinc = 0.01, 
                        Delta=1, sd=1, G=3){
   sdm.min <- Delta/sqrt(2*G)
@@ -115,7 +116,7 @@ nfrompower <- function(powermin=0.7, powermax=0.9, powerinc = 0.01,
 } 
 
 
-#calculate minimum detectable effect size
+#calculate minimum detectable effect size using power and n
 effectsize <- function(nmin=3, nmax=20, ninc=1, powermin=0.75, powermax=0.90, powerinc = 0.05, G=3){
   n <- seq(nmin, nmax, by = ninc)
   power <- seq(powermin, powermax, by = powerinc)
@@ -131,6 +132,8 @@ effectsize <- function(nmin=3, nmax=20, ninc=1, powermin=0.75, powermax=0.90, po
   
 }
 
+#-------UI----------------------------------------------------------
+
 ui <- fluidPage(
   
   #Title
@@ -142,153 +145,158 @@ ui <- fluidPage(
   
   #Sidebar panel 
   sidebarPanel(fluid = T,
-               selectInput("select",
-                           h3("Select option:"),
-                           choices = list("Power" = 1, 
-                                          "Sample size" = 2,
-                                          "Effect size" = 3)),
-               numericInput("G",
-                            "Number of groups",
-                            min=2,
-                            max=15,
-                            value=3),
-               #conditional panel for power calculation
-               conditionalPanel(condition="input.select == 1",
-                                numericInput("nmin1",
-                                             "Minimum n per group (integer)",
-                                             min = 2,
-                                             max = 200,
-                                             value = 3),
-                                numericInput("nmax1",
-                                             "Maximum n per group (integer)",
-                                             min=3,
-                                             max=300,
-                                             value=20),
-                                numericInput("ninc1",
-                                             "Increment for n (integer)",
-                                             min=1,
-                                             max=100,
-                                             value=1),
+    selectInput("select",
+       h3("Select option:"),
+       choices = list("Power" = 1, 
+       "Sample size" = 2,
+       "Effect size" = 3)),
+    numericInput("G",
+       "Number of groups",
+       min=2,
+       max=15,
+       value=3),
+    
+ #conditional panel for power calculation
+ conditionalPanel(condition="input.select == 1",
+    numericInput("nmin1",
+       "Minimum n per group (integer)",
+       min = 2,
+       max = 200,
+       value = 3),
+    numericInput("nmax1",
+       "Maximum n per group (integer)",
+       min=3,
+       max=300,
+       value=20),
+    numericInput("ninc1",
+       "Increment for n (integer)",
+       min=1,
+       max=100,
+       value=1),
                                 
-               #select whether to enter delta and sd, or cohen's f
-               selectInput("effect_calc",
-                           h3("Select input type:"),
-                           choices = list("Cohen's f" = 1, 
-                                          "Difference in means" = 2)),
-                   #conditional panel for cohen's f
-                 conditionalPanel(condition="input.effect_calc == 1",
-                                  p("Rule of thumb: 0.01 = small effect size,
-                                  0.25 = medium effect size, 
-                                  0.4 = large effect size."),
-                                  numericInput("fmin1",
-                                               "Minimum Cohen's f",
-                                               min = 0.01,
-                                               max = 5,
-                                               value = 0.1),
-                                  numericInput("fmax1",
-                                               "Maximum Cohen's f",
-                                               min=0.1,
-                                               max=10,
-                                               value=0.4)),
-               #conditional panel for mean/sd
-               conditionalPanel(condition="input.effect_calc == 2",
-                                numericInput("Delta1",
-                                             "Minimum difference in means (delta):",
-                                             min = 0.01,
-                                             max = 10,
-                                             value = 1),
-                                numericInput("sd1",
-                                             "Standard deviation",
-                                             min = 0.01,
-                                             max = 10,
-                                             value = 1))
-               ),
+    #select whether to enter delta and sd, or cohen's f
+    selectInput("effect_calc",
+       h3("Select input type:"),
+       choices = list("Cohen's f" = 1, 
+          "Difference in means" = 2)),
+    #conditional panel for cohen's f
+    conditionalPanel(condition="input.effect_calc == 1",
+       p("Rule of thumb: 0.01 = small effect size,
+       0.25 = medium effect size, 
+       0.4 = large effect size."),
+    numericInput("fmin1",
+       "Minimum Cohen's f",
+       min = 0.01,
+       max = 5,
+       value = 0.1),
+    numericInput("fmax1",
+       "Maximum Cohen's f",
+       min=0.1,
+       max=10,
+       value=0.4)),
+   #conditional panel for mean/sd
+   conditionalPanel(condition="input.effect_calc == 2",
+   numericInput("Delta1",
+       "Maximum difference in means between 2 groups (delta):",
+       min = 0.01,
+       max = 10,
+       value = 1),
+   numericInput("sd1",
+       "Standard deviation",
+       min = 0.01,
+       max = 10,
+       value = 1)),
+   downloadButton("downloadData1", "Download")
+   ),
                                 
-               #conditional panel for sample size calculation
-               conditionalPanel(condition="input.select == 2",
-                                numericInput("powermin2",
-                                             "Minimum power",
-                                             min = 0.1,
-                                             max = 1,
-                                             value = 0.75),
-                                numericInput("powermax2",
-                                             "Maximum power",
-                                             min=0.1,
-                                             max=1,
-                                             value=0.9),
-                                numericInput("powerinc2",
-                                             "Increment for power",
-                                             min=0.001,
-                                             max=0.1,
-                                             value=0.01),
-                                #select whether to enter delta and sd, or cohen's f
-                                selectInput("effect_calc2",
-                                            h3("Select input type:"),
-                                            choices = list("Cohen's f" = 1, 
-                                                           "Difference in means" = 2)),
+  #conditional panel for sample size calculation
+  conditionalPanel(condition="input.select == 2",
+      numericInput("powermin2",
+      "Minimum power, range: (0, 1)",
+      min = 0.1,
+      max = 1,
+      value = 0.75),
+  numericInput("powermax2",
+      "Maximum power, range: (0, 1)",
+      min=0.1,
+      max=1,
+      value=0.9),
+  numericInput("powerinc2",
+      "Increment for power",
+      min=0.001,
+      max=0.1,
+      value=0.01),
+  #select whether to enter delta and sd, or cohen's f
+  selectInput("effect_calc2",
+      h3("Select input type:"),
+      choices = list("Cohen's f" = 1, 
+      "Difference in means" = 2)),
                         
-                                #conditional panel for cohen's f
-                                conditionalPanel(condition="input.effect_calc2 == 1",
-                                                 p("Rule of thumb: 0.01 = small effect size,
-                                  0.25 = medium effect size, 
-                                  0.4 = large effect size."),
-                                                 numericInput("fmin2",
-                                                              "Minimum Cohen's f",
-                                                              min = 0.01,
-                                                              max = 5,
-                                                              value = 0.1),
-                                                 numericInput("fmax2",
-                                                              "Maximum Cohen's f",
-                                                              min=0.1,
-                                                              max=10,
-                                                              value=0.4)),
-                                #conditional panel for mean/sd
-                                conditionalPanel(condition="input.effect_calc2 == 2",
-                                                 numericInput("Delta2",
-                                                              "Minimum difference in means (delta):",
-                                                              min = 0.01,
-                                                              max = 10,
-                                                              value = 1),
-                                                 numericInput("sd2",
-                                                              "Standard deviation",
-                                                              min = 0.01,
-                                                              max = 10,
-                                                              value = 1))
-               ),
-               
-               #conditional panel for effect size calculation
-               conditionalPanel(condition="input.select == 3",
-                                numericInput("powermin3",
-                                             "Minimum power",
-                                             min = 0.1,
-                                             max = 1,
-                                             value = 0.75),
-                                numericInput("powermax3",
-                                             "Maximum power",
-                                             min=0.1,
-                                             max=1,
-                                             value=0.9),
-                                numericInput("powerinc3",
-                                             "Increment for power",
-                                             min=0.001,
-                                             max=0.1,
-                                             value=0.01),
-                                numericInput("nmin3",
-                                             "Minimum n per group",
-                                             min = 2,
-                                             max = 200,
-                                             value = 3),
-                                numericInput("nmax3",
-                                             "Maximum n per group",
-                                             min=3,
-                                             max=300,
-                                             value=20),
-               numericInput("ninc3",
-                            "Increment for n",
-                            min=1,
-                            max=100,
-                            value=1))
+  #conditional panel for cohen's f
+  conditionalPanel(condition="input.effect_calc2 == 1",
+      p("Rule of thumb: 0.01 = small effect size,
+      0.25 = medium effect size, 
+      0.4 = large effect size."),
+  numericInput("fmin2",
+      "Minimum Cohen's f",
+      min = 0.01,
+      max = 5,
+      value = 0.1),
+  numericInput("fmax2",
+      "Maximum Cohen's f",
+      min=0.1,
+      max=10,
+      value=0.4)),
+  #conditional panel for mean/sd
+  conditionalPanel(condition="input.effect_calc2 == 2",
+  numericInput("Delta2",
+     "Maximum difference in means between 2 groups (delta):",
+     min = 0.01,
+     max = 10,
+     value = 1),
+  numericInput("sd2",
+     "Standard deviation",
+     min = 0.01,
+     max = 10,
+     value = 1)),
+  downloadButton("downloadData2", "Download")
   ),
+               
+  #conditional panel for effect size calculation
+  conditionalPanel(condition="input.select == 3",
+  numericInput("powermin3",
+     "Minimum power, range: (0, 1)",
+      min = 0.1,
+      max = 1,
+      value = 0.75),
+  numericInput("powermax3",
+     "Maximum power, range: (0, 1)",
+     min=0.1,
+     max=1,
+     value=0.9),
+  numericInput("powerinc3",
+     "Increment for power",
+     min=0.001,
+     max=0.1,
+     value=0.01),
+  numericInput("nmin3",
+     "Minimum n per group (integer)",
+     min = 2,
+     max = 200,
+     value = 3),
+  numericInput("nmax3",
+     "Maximum n per group (integer)",
+     min=3,
+     max=300,
+     value=20),
+  numericInput("ninc3",
+     "Increment for n (integer)",
+     min=1,
+     max=100,
+     value=1),
+ downloadButton("downloadData3", "Download")),
+  ),
+ 
   mainPanel(
     tabsetPanel(id = "main_tab",
                 type = "tabs",
@@ -307,7 +315,7 @@ ui <- fluidPage(
                          plotOutput("powerplot"),
                          p(h3("Datatable output:")),
                          h4(textOutput("text")),
-                         downloadButton("downloadData", "Download"),
+                         #downloadButton("downloadData", "Download"),
                          dataTableOutput("table")),
                 tabPanel("Documentation",
                          tags$br(),
@@ -323,7 +331,10 @@ ui <- fluidPage(
                           "Minimum and maximum Cohen's f effect sizes were calculated from the difference 
                          in means using the method described in the PASS documentation:",
                          tags$a(href="https://www.ncss.com/wp-content/themes/ncss/pdf/Procedures/PASS/One-Way_Analysis_of_Variance_Assuming_Equal_Variances-F-Tests.pdf","PASS documentation"),
-                         "Note that this procedure assumes equality of variances across groups."
+                         "Note that this procedure assumes equality of variances across groups.  Additional 
+                         information about one-way ANOVA and the calculations performed by this app can be 
+                         found here:",
+                         tags$a(href="https://github.com/shaunarakshe/PowerSampleSize/blob/main/PSS_ANOVA.rmd", "Explanation")
                          ),
                          p(h4("About ANOVA Models"),
                            "ANOVA models allow the comparison of multiple group means at the same time.
@@ -350,13 +361,13 @@ ui <- fluidPage(
                            p(h5("Power"),
                              "This option calculates the power of the F test for ANOVA based on sample size,
                              effect size, and number of groups.  Effect size can be input as Cohen's f, or the user
-                             can specify the minimum difference between two group means and the overall standard deviation.
+                             can specify the maximum difference between two group means and the overall standard deviation.
                              This information is then used to calculate a minimum and a maximum possible value for 
                              Cohen's f."),
                            p(h5("Sample Size"),
                              "This option calculates the required sample size per group based on selected values of power,
                              effect size, and number of groups.  Effect size can be input as Cohen's f, or the user
-                             can specify the minimum difference between two group means and the overall standard deviation.
+                             can specify the maximum difference between two group means and the overall standard deviation.
                              This information is then used to calculate a minimum and a maximum possible value for 
                              Cohen's f."),
                            p(h5("Effect Size"),
@@ -381,6 +392,8 @@ ui <- fluidPage(
   
 )
 
+#-----Server----------------------------------------------------------
+
 server <- function(input, output){
   
   
@@ -402,7 +415,7 @@ server <- function(input, output){
  powerdata2 <- eventReactive(input$calculate,{
    if(input$effect_calc2==1){
    
-   nfrompowerf(input$powermin2, input$powermax2, input$powerinc3,
+   nfrompowerf(input$powermin2, input$powermax2, input$powerinc2,
                input$fmin2, input$fmax2, input$G)
  }else{
    nfrompower(input$powermin2, input$powermax2, input$powerinc2,
@@ -418,9 +431,7 @@ server <- function(input, output){
 })
   
  output$powerplot <- renderPlot({   
-   
-      
-      
+ 
       if((input$select==1)&(input$effect_calc==1)){ 
    powerdata1() %>%
           ggplot(aes(x = n, y = power, color = factor(round(cohensf,3)),
@@ -435,6 +446,7 @@ server <- function(input, output){
           guides(linetype = F)
  
   }else if((input$select==1)&(input$effect_calc==2)){
+    
      ggplot(powerdata1(), aes(x = n, y = power, color = factor(round(cohensf,3)),
        linetype=factor(ifelse(cohensf==0.1|cohensf==0.25|cohensf==0.4, 1, 0)))) + 
         geom_line() + 
@@ -445,6 +457,7 @@ server <- function(input, output){
           color = "Cohen's f"
           ) +
          guides(linetype = F)
+    
     }else if((input$select==2)&(input$effect_calc2==1)){
       
     ggplot(powerdata2(), aes(x = power, y = n, color = factor(round(cohensf,3)),
@@ -457,6 +470,7 @@ server <- function(input, output){
        color = "Cohen's f"
        ) +
        guides(linetype = F)
+      
     }else if((input$select==2)&(input$effect_calc2==2)){
   
      ggplot(powerdata2(), aes(x = power, y = n, color = factor(round(cohensf,3)),
@@ -469,6 +483,7 @@ server <- function(input, output){
          color = "Cohen's f"
          ) +
         guides(linetype = F)
+      
     }else{
       
       ggplot(powerdata3(), aes(x = n, y = f, color = factor(power))) +
@@ -482,13 +497,12 @@ server <- function(input, output){
     }
 
   })
-
+ 
   output$text <- renderText({
     if(input$select ==1){
       "Table columns are values of Cohen's f. Table cells are values of power."
     }else if(input$select ==2){
-      "Table columns are values of power. Table cells are values of n per group.
-      User-input values of effect size shown in bold, rule-of-thumb values in dotted lines."
+      "Table columns are values of power. Table cells are values of n per group."
     }else{
       "Table columns are values of power. Table cells are values of Cohen's f."
     }
@@ -502,6 +516,7 @@ server <- function(input, output){
                power = round(power, digits = 4)) %>%
         pivot_wider(names_from = "cohensf",
                     values_from = "power") 
+      
     }else if((input$select==1)&(input$effect_calc==2)){
 
       powerdata1() %>%  
@@ -509,6 +524,7 @@ server <- function(input, output){
                power = round(power, digits = 4)) %>%
         pivot_wider(names_from = "cohensf",
                     values_from = "power") 
+      
     }else if((input$select==2)&(input$effect_calc==1)){
  
       powerdata2() %>%  
@@ -516,6 +532,7 @@ server <- function(input, output){
                n = round(n)) %>%
         pivot_wider(names_from = "power",
                     values_from = "n") 
+      
     }else if((input$select==2)&(input$effect_calc==2)){
     
       powerdata2() %>%  
@@ -523,6 +540,7 @@ server <- function(input, output){
                n = round(n)) %>%
         pivot_wider(names_from = "power",
                     values_from = "n") 
+      
     }else{
       
       powerdata3() %>%
@@ -535,13 +553,24 @@ server <- function(input, output){
   })
   
   #downloadable csv of table
-  #fix this for 3 different powerdatas
-  output$downloadData <- downloadHandler(
-    filename = "powerdata.csv",
+  output$downloadData1 <- downloadHandler(
+    filename = "power.csv",
     content = function(file){
-      write.csv(powerdata(), file, row.names = F)
-    }
+      write.csv(powerdata1(), file, row.names = F)}
   )
+
+  output$downloadData2 <- downloadHandler(
+    filename = "samplesize.csv", 
+    content = function(file){
+      write.csv(powerdata2(), file, row.names = F)}
+  )
+
+  output$downloadData3 <- downloadHandler(
+    filename = "effectsize.csv",
+    content = function(file){
+      write.csv(powerdata3(), file, row.names = F)}
+  )
+
   
   
 }

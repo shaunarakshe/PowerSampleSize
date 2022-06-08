@@ -1,7 +1,7 @@
 ---
-title: "PSS_ANOVA"
+title: "Power & Sample Size: One-Way ANOVA"
 author: "Shauna Rakshe"
-date: "4/4/2022"
+date: "6/8/2022"
 output: 
   html_document:
     theme: lumen
@@ -13,123 +13,441 @@ output:
 
 ```{r setup, message=FALSE}
 library(tidyverse)
-
+library(pwr)
+library(broom)
 ```
 
-# Introduction/Recap
+# Recap: 2 sample t-test
 
-Recap of 2-sample t test PSS considerations.  Introduce noncentrality for t test?
+If we want to compare the means of two independent groups using a 2-sample t-test, there are four parameters to consider when calculating power or sample size:
 
-# One-way ANOVA model
+* Effect size $\Delta$: the difference in means
+
+* $\alpha$: the Type I error rate (false positives)
+
+* Power: the probability of correctly rejecting the null hypothesis
+
+* Sample size n: the number of individual observations in each group
+
+We can specify any three of these parameters and solve for the last one.  
+
+# Effect size
+
+With a two-sample t test, effect size is the difference between the two means. If the difference **between** the means of the two groups is big compared to the variation **within** a group, it's easy to see that the groups have different means.
+
+$$\Delta = \mu_1 - \mu_2$$
+This is hard to generalize to more than two means!
+
+Think of the difference between the distribution of the test statistic under H_0 and the distribution under H_A.  
+
+Describe the shift in distribution with a "noncentrality parameter", $\lambda$:
+$$H_0 \sim t_{df}$$
+$$H_A \sim t_{df, \lambda}$$
+
+For our 2 sample t test:
+$$\lambda = \frac{\mu_1 - \mu_2}{\sqrt{\sigma_1^2/n_1 + \sigma_2^2/n_2}}$$
+With only 2 means to compare, it makes more sense to think of $\Delta$.  But for more complicated situations, we'll need to use $\lambda$ to calculate power or sample size.
+
+```{r echo = F}
+#create simulated data for example
+set.seed(81)
+group1 <- rnorm(10, mean = 3, sd = 1.3)
+group2 <- rnorm(10, mean = 1, sd = 1.3)
+df <- tibble(group1, group2) %>% pivot_longer(cols = c("group1","group2"),
+                                              names_to="group",
+                                              values_to="response")
+
+ggplot(data = df, aes(x = group, y = response)) + 
+    geom_boxplot(aes(color = group),width = 0.2, show.legend = F) +
+  geom_jitter(aes(color = group),
+              alpha = 0.7,
+              show.legend = F,
+              position = position_jitter(
+                height = 0.4
+              )) +
+  theme_bw() + 
+  labs(
+    title = "Mouse biomarker level after treatment",
+    x = "Treatment Group",
+    y = "Response (ug/mL)"
+  )
+```
+
+```{r echo = F, fig.dim=c(8,6)}
+
+
+df2sample <- 2*length(group1)-2
+lambda <- (mean(group1)-mean(group2))/sqrt(sd(group1)^2/length(group1)+sd(group2)^2/length(group2))
+tstar <- qt(0.975, df=df2sample)
+
+#graph it
+#prettier plot with double shading
+twosample.data <- tibble(xvar = seq(0, 7, by = 0.1)) %>%
+  mutate(
+    #distribution under the null hypothesis
+         H0 = dt(xvar, df = df2sample),
+  #distribution under the alternative hypothesis
+         HA = dt(xvar, df = df2sample, ncp = lambda)) %>%
+  pivot_longer(cols = c(H0, HA),
+               names_to = "hypothesis",
+               values_to = "pdf")
+
+pwr.t.test(n = 10, d=2/1.3, sig.level = 0.05)
+
+plota <- ggplot(twosample.data, aes(x = xvar, y = pdf,
+                    color = hypothesis,
+                    linetype = hypothesis)) +
+  geom_line() + 
+  geom_area(data = twosample.data %>% 
+              filter(hypothesis == "HA"),
+            aes(y=ifelse(xvar > tstar, pdf, 0)),
+                fill = "lightyellow") +
+  geom_area(data = twosample.data %>%
+              filter(hypothesis == "H0"),
+            aes(y=ifelse(xvar < tstar, pdf, 0)),
+                fill = "lightgrey") + 
+  geom_vline(xintercept = tstar, color = "red") + 
+  theme_minimal() + 
+  theme(legend.position = "none") +
+  scale_color_viridis_d() +
+  labs(title = "Power = 0.90",
+       subtitle = "n = 10, delta = 2, sd = 1.3; lambda = 3.79",
+       x = "Value of t statistic")
+
+#example 2: delta small compared to sd
+group3 <- rnorm(10, mean = 2, sd = 1.3)
+group4 <- rnorm(10, mean = 1, sd = 1.3)
+df2sample2 <- 2*length(group3)-2
+lambda2 <- (mean(group3)-mean(group4))/sqrt(sd(group3)^2/length(group3)+sd(group4)^2/length(group4))
+
+pwr.t.test(n = 10, d=1/1.3, sig.level = 0.05)
+
+twosample.data2 <- tibble(xvar = seq(0, 7, by = 0.1)) %>%
+  mutate(
+    #distribution under the null hypothesis
+         H0 = dt(xvar, df = df2sample),
+  #distribution under the alternative hypothesis
+         HA = dt(xvar, df = df2sample, ncp = lambda2)) %>%
+  pivot_longer(cols = c(H0, HA),
+               names_to = "hypothesis",
+               values_to = "pdf")
+
+plotb <- ggplot(twosample.data2, aes(x = xvar, y = pdf,
+                    color = hypothesis,
+                    linetype = hypothesis)) +
+  geom_line() + 
+  geom_area(data = twosample.data2 %>% 
+              filter(hypothesis == "HA"),
+            aes(y=ifelse(xvar > tstar, pdf, 0)),
+                fill = "lightyellow") +
+  geom_area(data = twosample.data2 %>%
+              filter(hypothesis == "H0"),
+            aes(y=ifelse(xvar < tstar, pdf, 0)),
+                fill = "lightgrey") + 
+  geom_vline(xintercept = tstar, color = "red") + 
+  theme_minimal() + 
+  theme(legend.position = "none") +
+  scale_color_viridis_d() +
+  labs(title = "Power = 0.37",
+       subtitle = "n = 10, delta = 1, sd = 1.3; lambda = 1.40",
+       x = "Value of t statistic")
+
+gridExtra::grid.arrange(plota, plotb, ncol = 2)
+```
+
+# Comparing more than two group means at once
 
 What happens if we want to compare more than two means?  
 
-* We could do a bunch of 2 sample t tests. But this would inflate the false positive rate (more on this later).
+* We could do a bunch of 2 sample t tests. But this would inflate the false positive rate.
 
-* We can use ANOVA to test the equality of all the means at once!
+* We can use ANOVA to test the equality of all the means at once.
 
-## ANOVA basic idea
+* ANOVA is a generalization of the 2 sample t test to multiple groups.  The idea is the same: we'll compare variation **between** groups to variation **within** groups.
 
-*Need to check with Dr. Minier how much people are likely to know already/how much depth she wants on this. Also best notation to not be scary.*
+  + ANOVA won't identify which means are different.  This will only tell us if the means are the same, or if at least one is different from the others.
+  
+  + If we find evidence that not all the means are the same, we still have to compare the means pairwise to find out **which ones are different**
+  
+## How does ANOVA work?
 
-*Need graphic: scatterplot overlaid with box plots for 3 or more groups*
+See if the variance **between** groups is large compared to the variance **within** groups:
 
-ANOVA (Analysis of Variance) compares the means of several different groups.  If the variation **between** groups is large compared to the variation **within** groups, the means of groups are likely to really be different.  On the other hand, if the variation **within** groups is nearly as large as the variation **between** groups, any calculated difference in means is likely due to chance.  Note that we're not finding which means are different.  We just want to know if any means are different, or if they're all the same.
+Break the total variation into two parts: 
 
-A very basic ANOVA model:
+  -Variation between a point and the mean of its group
+  
+  -Variation between the mean of the group and the overall (grand) mean
 
-* The response variable is continuous.
+$$F = \frac{\textrm{variance between groups}}{\textrm{variance within groups}} = \frac{MSG}{MSE}$$
 
-* We're comparing responses across fixed groups or categories.
+Say we're comparing blood biomarker levels in mice.  
 
-* The variances within each group are equal.
+  -Three different treatment groups
+  
+  -Does the average biomarker level differ between groups?
 
-* The individuals within each group and across groups are all independent.
 
-* Within each group, the responses follow a roughly normal distribution.
+```{r echo = F, fig.dim=c(8,6), fig.cap = "Comparing the means of 3 groups"}
+#create simulated data for example
+set.seed(81)
+treat.a <- rnorm(10, mean = 5.5, sd = 1.3)
+treat.b <- rnorm(10, mean = 2.5, sd = 1.5)
+placebo <- rnorm(10, mean = 4, sd = 1.4)
+
+#put simulated data in nice format for graphing
+exp.1 <- tibble(treat.a, treat.b, placebo)
+exp.1long <- pivot_longer(exp.1, 
+                          cols = c("treat.a",
+                                   "treat.b",
+                                   "placebo"),
+                          names_to = "treatment",
+                          values_to = "response")
+exp.1long$treatment <- factor(exp.1long$treatment)
+levels(exp.1long$treatment) <- c("Placebo",
+                                 "Treatment A",
+                                 "Treatment B")
+
+plot1 <- ggplot(exp.1long, aes(x=treatment, y = response, fill = treatment)) +
+  geom_violin(width = 0.4, alpha = 0.4, show.legend = F) +
+  geom_boxplot(width = 0.2, show.legend = F) +
+  geom_jitter(aes(color = treatment),
+              alpha = 0.7,
+              show.legend = F,
+              position = position_jitter(
+                height = 0.4
+              )) +
+  theme_bw() + 
+  labs(
+    x = "Treatment Group",
+    y = "Response (ug/mL)"
+  )
+
+#plot showing the grand mean, group means and individual data points
+plot2 <- ggplot(data = exp.1long, aes(x= treatment, y = response, fill = treatment)) +
+  geom_dotplot(binaxis = "y", alpha = 0.5) +
+  geom_hline(aes(yintercept = mean(response)),
+             lty = "dashed") +
+  stat_summary(fun.y = "mean", geom = "point", size = 4, color = "grey33", alpha = 1) + 
+  theme_bw() + 
+  theme(legend.position = "none")
+
+gridExtra::grid.arrange(plot1, plot2, ncol = 2)
+```
+
+## A very basic ANOVA model:
+
+- The response variable is continuous.
+
+- We're comparing responses across fixed groups or categories.
+
+- The variances within each group are equal.
+
+- The individuals within each group and across groups are all independent.
+
+- Within each group, the responses follow a roughly normal distribution.
 
 We'll start by looking at one-way ANOVA.  This means we are looking at the mean response across **one category** (eg Treatment Group = Treatment 1, Treatment 2, or Placebo).
 
-Common pitfalls:
+$$y_{ij} = \mu + \alpha_i + \epsilon$$
+cell mean = grand mean + treatment effect + error
 
-* Violations of ANOVA model assumptions regarding response data distributions
+## Common pitfalls
 
-  + Variances within the groups aren't roughly equal. For example, if we're using a mouse model with an established genotype, we can expect the variance within each group of mice to be roughly similar.  But if you expect wildly different variances between different groups for any reason, *tell your statistician early!* 
+- Violations of ANOVA model assumptions regarding response data distributions
 
-  + Responses within each group aren't roughly normally distributed.  This is another violation of ANOVA assumptions, and if you expect to see it, it needs to be discussed. 
+  - Variances within the groups aren't roughly equal. 
+  - Responses within each group aren't roughly normally distributed. 
+  - Severe violations? You might have to use a nonparametric model.
   
-  + Violations of ANOVA assumptions that are too severe mean that you'll need to analyze your data using a different model.  The power of a nonparametric model (for example, Kruskal-Wallis) is much less than that of ANOVA for a similar sample size.
+Nonparametric models generally have much less power, so the sample size you need will be much bigger.
 
-* Individuals aren't independent
+- Individuals aren't independent
 
-  + Individuals in each group are measured twice, pre- and post-treatment.
-  
-  + If this is your situation, you need repeated-measures ANOVA. (We'll talk about this later today.) This changes the sample size calculations, so be sure that you discuss your research question and experimental design with your statistician! 
+  - Individuals in each group are measured twice, pre- and post-treatment.
+  - If this is your situation, you need repeated-measures ANOVA. 
 
-*Dr Minnier, our textbook had an example like this where they used ANCOVA with the pre-treatment biomarker level as concomitant variable. Can I show it to you?  I remember being confused at the time how they could get away with that.*.  
+This changes the sample size calculations!
 
-*Put the ANOVA model equation here and discuss*
-  
-Our hypotheses for ANOVA are:
-H~0~: All the means are equal. 
-H~A~: Not all the means are equal.  At least one mean is different from the others.
+## One-way ANOVA example
 
-We also want to specify our Type I and Type II error rates.  Remember, Type I error is the probability that we will reject the null hypothesis given that it's actually true (a false positive), while Type II error is the probability that we'll fail to reject the null hypothesis when it's actually false (a false negative).  Here we will set the conventional values of alpha (Type I error rate) = 0.05 and beta (type II error rate) = 0.20, so power = 1- beta = 0.80.
-$$H_0: \mu_A = \mu_B = \mu_C\\
-H_A: \textrm{At least one mean is different from the others.}\\
-\alpha = 0.05\\
-\beta = 0.20\\
-power = 1- \beta = 0.80$$
+Let's go back to our biomarker-level-in-mice experiment. We have three treatments to compare.  How many mice will we need to get 80% power for our experiment?
 
-Say that we have G groups (in our example here, G = 3) with N total individuals in all the groups combined.  Our test statistic for rejecting (or failing to reject) the null hypothesis will follow the F distribution with G-1 numerator degrees of freedom and N-G denominator degrees of freedom.  We'll reject H_0_ if our F statistic is greater than or equal to the critical value:
-$$F = \frac{MST}{MSE}=\frac{\frac{SST}{df1}}{\frac{SSE}{df2}} \geq F_{G-1, N-G, \alpha}$$
-*show a picture of the F distribution, especially of how it changes with different degrees of freedom in numerator and denominator?  Maybe also say something about how the F distribution changes depending on the num and denom degrees of freedom, and how this makes sample calcs complicated. I think this might be a good place for a very simple shiny app -- sliders for G and N to change the shape of the F distribution.  Also, I feel like I usually see k instead of G, do you have a preference?*
+$$H_0: \mu_A = \mu_B = \mu_C$$
+$$H_A: \textrm{At least one mean is different from the others.}$$
+$$\alpha = 0.05$$
 
-```{r}
-#example df curve with df1 = 10 and df2 = 20
-df1 <- 10  
-df2 <- 20 
+Just like in the 2 sample t test case, we need to specify 3 parameters and solve for the last:
 
-ggplot(data.frame(x = c(0, 3)), aes(x = x)) + 
-  stat_function(fun = df, 
-                args = list(df1 = df1, df2 = df2))
+- Effect size
 
-#for our example, 3 in each group
-G <- 3 #specify number of groups
-N <- 12 #specify total number of experimental units
+- $\alpha$: the Type I error rate (false positives)
 
-df1 <- G-1 
-df2 <- N-G 
+- Power: the probability of correctly rejecting the null hypothesis
 
-ggplot(data.frame(x = c(0, 3)), aes(x = x)) + 
-  stat_function(fun = df, 
-                args = list(df1 = df1, df2 = df2)) 
+- Sample size n: the number of individual observations in each group
 
-#for our example, 3 in each group
-G <- 3 #specify number of groups
-N <- 21 #specify total number of experimental units
+**If we want to find n, we need to specify effect size. But how?**
 
-df1 <- G-1 
-df2 <- N-G 
+# Effect size for ANOVA: Cohen's f
 
-ggplot(data.frame(x = c(0, 3)), aes(x = x)) + 
-  stat_function(fun = df, 
-                args = list(df1 = df1, df2 = df2))
+Many people use the effect size called Cohen's f for ANOVA power/sample size calculations.
 
-  
+$$f = 0.1 ~~\textrm{small effect}$$
+$$f = 0.25 ~~\textrm{medium effect}$$
+$$f = 0.4 ~~\textrm{large effect}$$
+
+But this is just a rule of thumb.  
+
+**How do you know what's meaningful for your experiment?**
+
+```{r echo=F, fig.cap = "Power for different effect sizes as a function of n per group"}
+#tidy(pwr.anova.test(f = 1, k = 3, n=3, sig.level = 0.05) )
+
+#we want to plot power for a number of different sizes of n
+cohensf <- c(0.1, 0.25, 0.5, 1.0, 1.5)
+n <- c(seq(2, 10, by = 1), seq(12, 20, by = 2), seq(25, 50, by = 5))
+
+powerdata <- crossing(cohensf, n) %>%
+  rowwise() %>%
+  mutate(power = pwr::pwr.anova.test(
+    f=cohensf,
+    k=3,
+    n = n,
+    sig.level = 0.05
+  ) %>% tidy() %>% pull(power) )
+
+ggplot(powerdata, aes(x = n, y = power, color = factor(cohensf))) + 
+  geom_line() + 
+  theme_minimal() + 
+  labs(
+    title = "Power of a one-way ANOVA with 3 balanced groups",
+    x = "Number in each group (n)",
+    y = "Power"
+  )
 ```
 
 
+What is Cohen's f quantifying?
 
-If the alternative hypothesis is true, the F distribution won't be the same as what we'd expect under the null hypothesis.  How will it change?  The difference between the F distribution we'd expect under the alternative hypothesis (=there is a difference between the means of different groups) and the null hypothesis (=all the means are the same) is captured by the noncentrality parameter lambda.
+It's the square root of the variance in the means divided by the total variance.
 
-$$\lambda = \frac{\sum n_i (\mu_i - \mu)^2}{\sigma^2}$$
+$$f = \sqrt{\frac{\sigma^2_m}{\sigma^2}}$$
 
-*I was unsure if I should use alphas or mu~i~s for the group level means. Which will be more understandable for experimentalists?  My guess is mu~i~s... *
+Why do we care?  It's related to the noncentrality parameter for the ANOVA F statistic:
 
-*Put in a brief detour: what is the noncentrality parameter for a two-sample t test*
+$$\lambda = \frac{\sum_{i=1}^{G} n_i(\mu_i - \mu)^2}{\sigma^2}
+=N \frac{\sigma^2_m}{\sigma^2} = Nf^2$$
 
-Example: Mice getting two treatments compared to placebo, looking at blood levels of biomarker after 2 weeks (a continuous measure). Group 1 is Treatment A.  Group 2 is Treatment B.  Group 3 is Placebo.  We estimate that compared to placebo, Group 1 will have a mean 1.5 units higher than placebo and Group 2 will have a mean 1.5 units lower than placebo. Let's say we expect a standard deviation of 0.8 units from previous experimental work. We want equal numbers of mice in each group and 80% power for a test with Type 1 error rate 0.05.
+**We can estimate a minimum value for $\sigma^2_m$ from a difference in means.**
+
+You probably have an idea what a meaningful difference in means would be for your experiment!
+
+## Effect size: a better way
+
+Say we'd be interested if any two means were different by amount $\Delta$.
+
+- Use $\Delta$ to calculate the minimum variance in means, $\sigma^2_m$ 
+- Then calculate a minimum Cohen's f
+
+**The minimum $\sigma_m$ occurs if two means differ by exactly $\Delta$, and all the other means are halfway between.**
+
+The grand mean $\mu$ will be zero.
+
+Assume all groups have an equal size. 
+
+$$\sigma^2_m = \sum_{i=1}^{G}(\frac{n_i}{N})(\mu_i - \mu)^2 =\frac{n}{N}\sum_{i=1}^{G}(\mu_i - \mu)^2 $$
+
+$$\sigma^2_m(min) = \frac{n}{N}\sum_{i = 1}^{G}(\frac{\Delta^2}{4}+\frac{\Delta^2}{4})=\frac{n}{N}(\frac{\Delta^2}{4}+\frac{\Delta^2}{4})=\frac{n}{N}\frac{\Delta^2}{2}=\frac{\Delta^2}{2G}$$
+
+Then you can calculate a minimum Cohen's f:
+
+$$f = \sqrt{\frac{\sigma_m^2(min)}{\sigma^2}}=\sqrt{\frac{\Delta^2}{2G\sigma^2}}$$
+
+And the noncentrality parameter for one-way ANOVA becomes:
+$$\lambda =N \frac{\sigma^2_m}{\sigma^2}=\frac{N\Delta^2}{2G\sigma^2}$$
+# Takeaways for power/sample size calculations
+
+Remember that $\lambda$ quantifies the difference between the distribution under H0 and the difference under HA.
+
+**The bigger $\lambda$ is, the more power you will have.**
+
+$$\lambda =\frac{N\Delta^2}{2G\sigma^2}$$
+$\lambda$ is larger when:
+
+- N (total number of observations) goes up
+
+- The difference between at least one pair of means goes up
+
+- G (number of groups) goes down
+
+- $\sigma^2$ (overall variation in the data) goes down
+
+Just like we got a minimum Cohen's f value for a $\Delta$ of interest, we can also calculate a maximum Cohen's f value, and get a range of power estimates.
+
+```{r}
+cohensfminmax <- function(Delta, sd, G){
+  #calculate min cohen's f
+sdm.min <- Delta/sqrt(2*G)
+fmin <- sdm.min/sd
+
+#calculate max cohen's f
+#formula is different for odd vs even numbers of G
+sdm.max <- ifelse(
+  #check if even
+  (G%%2)==0,
+  #formula for even G
+  Delta/2,
+  #formula for odd G
+  (Delta*sqrt(G^2-1))/(2*G)
+)
+fmax <- sdm.max/sd
+
+#Make power curves
+cohensf <- seq(fmin, fmax, by = (fmax-fmin)/5)
+n <- c(seq(2, 10, by = 1), seq(12, 20, by = 2))
+
+powerdata <- crossing(cohensf, n) %>%
+  rowwise() %>%
+  mutate(power = pwr::pwr.anova.test(
+    f=cohensf,
+    k=G,
+    n = n,
+    sig.level = 0.05
+  ) %>% tidy() %>% pull(power) )
+  
+ggplot(powerdata, aes(x = n, y = power, color = factor(cohensf))) + 
+  geom_line() + 
+  theme_minimal() + 
+  labs(
+    x = "Number in each group (n)",
+    y = "Power"
+  )
+}
+
+cohensfminmax(Delta = 3, sd = 0.9, G =3)
+```
+
+# But which means are different?
+
+Maybe we found that at least one mean is different from the others.  YAY!  But...which mean is it?
+
+We have to compare each pair of means to see where the difference is.
+Mean of treatment 1 = mean of treatment 2?
+Mean of treatment 1 = mean of treatment 3?
+Mean of treatment 2 = mean of treatment 3?
+
+As the number of group level means we compare goes up, the number of pairwise comparisons increases fast.  **If we perform each pairwise comparison with alpha = 0.05, the overall error rate will be much higher than 5%**.  
+
+Control the overall (familywise) error rate by reducing the alpha level for each individual test.  
+The simplest (Bonferroni) method is to divide alpha by the number of tests to be performed. Lots of methods exist!
+
+If you're only interested in control vs each treatment, you can decide not to do the other comparisons.
+**Make sure to power the comparisons you're most interested in.** 
+
+# One-way ANOVA example:
+
+Example: Mice getting two treatments compared to placebo, looking at blood levels of biomarker after 2 weeks (a continuous measure). Group 1 is Treatment A.  Group 2 is Treatment B.  Group 3 is Placebo.  We estimate that the maximum difference in means that we will detect is 3 units. Let's say we expect a standard deviation of 0.89 units from previous experimental work. We want equal numbers of mice in each group and 80% power for a test with Type 1 error rate 0.05.
 $$G = 3\\
 \alpha = 0.05\\
 power = 0.80\\
@@ -154,8 +472,6 @@ $$\textrm{Power = Pr(reject Ho | Ha is true)}\\
 
 Let's see what kind of power we'd get with n = 3!
 
-*This is what we will want the shiny app to calculate.  Put in guesses for sigma, either effect size D or the level means, number of groups, and power, and have it spit out ns*
-
 ```{r}
 G <- 3 #specify number of groups
 n <- 3 #specify number in each group
@@ -165,31 +481,62 @@ df2 <- G*n - G
 lambda <- 5.625*n
 alpha <- 0.05
 
-ggplot(data.frame(x = c(0, 3)), aes(x = x)) + 
-  stat_function(fun = df, 
-                args = list(df1 = df1, df2 = df2)) +   stat_function(fun = df,
-                args = list(df1 = df1, df2 = df2,                        ncp = lambda))
-
 #Find the critical value for the distribution under the null hypothesis
 (Fcrit <- qf(alpha, G-1, G*n - G, lower.tail = F))
 #Find the probability of this critical value under Ha
 pf(Fcrit, G-1, G*n-G, ncp = lambda, lower.tail = F)
 
 ```
-The probability of getting a value at least as extreme as the critical value, given that the null hypothesis is true so that our results follow this non-central distribution, is 0.807.  This corresponds to 80.7% power!
 
-What if we didn't expect so strong an effect?  What if we expect the mean response for Group 1 to be 1.1, the mean response for Group 2 to be -1.1, and the mean response for Group 3 (Placebo) to be 0?  We still expect a standard deviaton of 0.8, want equal numbers of mice in each group, and want 80% power.$$G = 3\\
+```{r}
+#plot distributions
+
+pdfdata <- tibble(fvar = seq(0, n*G*3, by = 0.1)) %>%
+  mutate(
+    #distribution under the null hypothesis
+         H0 = df(fvar, df1 = df1, df2=df2),
+  #distribution under the alternative hypothesis
+         HA = df(fvar, df1 = df1, df2 = df2,                  ncp = lambda)) %>%
+  pivot_longer(cols = c(H0, HA),
+               names_to = "hypothesis",
+               values_to = "pdf")
+
+ggplot(pdfdata, aes(x = fvar, y = pdf,
+                    color = hypothesis,
+                    linetype = hypothesis)) +
+  geom_line() + 
+  geom_area(data = pdfdata %>% 
+              filter(hypothesis == "HA"),
+            aes(y=ifelse(fvar > Fcrit, pdf, 0),
+                fill = "lightyellow")) +
+  geom_area(data = pdfdata %>%
+              filter(hypothesis == "H0"),
+            aes(y=ifelse(fvar < Fcrit, pdf, 0),
+                fill = "lightgrey")) + 
+  geom_vline(xintercept = Fcrit, color = "red") + 
+  theme_minimal() + 
+  scale_color_viridis_d() +
+  labs(title = "Distribution under H0 vs HA",
+       subtitle = "G = 3, n = 3, lambda = 5.625n",
+       x = "Value of F statistic")
+  
+```
+
+
+The probability of getting a value at least as extreme as the critical value, given that the null hypothesis is false so that our results follow this non-central distribution, is 0.807.  This corresponds to 80.7% power!
+
+**With a maximum difference in means of 3 (means: -1.5, 1.5, 0), n per group of 3, 3 groups, and a type I error rate of 0.05, we expect to have power of about 80.7%.**
+
+What if our maximum difference in means was still 3, n per group was still 3, there were still 3 groups and the same type I error rate, but our means were arranged differently?
+
+$$G = 3\\
 \alpha = 0.05\\
-power = 0.80\\
-\mu_1 = 1.1\\
-\mu_2 = -1.1\\
-\mu_3 = 0$$
+\mu_1 = 1.5\\
+\mu_2 = -1.5\\
+\mu_3 = 1.5$$
 
-Now the noncentrality parameter for the distribution under H~a~ will be:
-$$\lambda = \frac{\sum n_i (\mu_i - \mu)^2}{\sigma^2} = \frac{1}{0.8}[1.1^2n+(-1.1)^2n + 0^2n]\\
-=\frac{2.42n}{0.8}=3.025n$$
-
-What happens to our power now if we use n = 3 in each group?
+$$\lambda = \frac{\sum n_i (\mu_i - \mu)^2}{\sigma^2} = \frac{1}{0.8}[1.5^2n+(-1.5)^2n + 1.5^2n]\\
+=\frac{6.75n}{0.8}=8.438n$$
 
 ```{r}
 G <- 3 #specify number of groups
@@ -197,62 +544,18 @@ n <- 3 #specify number in each group
 
 df1 <- G-1 
 df2 <- G*n - G 
-lambda <- 3.025*n
+lambda <- 8.4375*n
 alpha <- 0.05
-
-ggplot(data.frame(x = c(0, 3)), aes(x = x)) + 
-  stat_function(fun = df, 
-                args = list(df1 = df1, df2 = df2)) +   stat_function(fun = df,
-                args = list(df1 = df1, df2 = df2,                        ncp = lambda))
 
 #Find the critical value for the distribution under the null hypothesis
 (Fcrit <- qf(alpha, G-1, G*n - G, lower.tail = F))
 #Find the probability of this critical value under Ha
 pf(Fcrit, G-1, G*n-G, ncp = lambda, lower.tail = F)
 ```
-Now our power is only 0.54 or 54%!  Bummer.  How about if we raise the number of mice to 4 per group.
 
-```{r}
-G <- 3 #specify number of groups
-n <- 4 #specify number in each group
+**With this pattern of means, the power rises to 93.4%.**
 
-df1 <- G-1 
-df2 <- G*n - G 
-lambda <- 3.025*n
-alpha <- 0.05
-
-ggplot(data.frame(x = c(0, 3)), aes(x = x)) + 
-  stat_function(fun = df, 
-                args = list(df1 = df1, df2 = df2)) +   stat_function(fun = df,
-                args = list(df1 = df1, df2 = df2,                        ncp = lambda))
-
-#Find the critical value for the distribution under the null hypothesis
-(Fcrit <- qf(alpha, G-1, G*n - G, lower.tail = F))
-#Find the probability of this critical value under Ha
-pf(Fcrit, G-1, G*n-G, ncp = lambda, lower.tail = F)
-```
-Power is 0.75 or 75%.  Still not there.  We need more mice.  n = 5 in each group?
-
-```{r}
-G <- 3 #specify number of groups
-n <- 5 #specify number in each group
-
-df1 <- G-1 
-df2 <- G*n - G 
-lambda <- 3.025*n
-alpha <- 0.05
-
-ggplot(data.frame(x = c(0, 3)), aes(x = x)) + 
-  stat_function(fun = df, 
-                args = list(df1 = df1, df2 = df2)) +   stat_function(fun = df,
-                args = list(df1 = df1, df2 = df2,                        ncp = lambda))
-
-#Find the critical value for the distribution under the null hypothesis
-(Fcrit <- qf(alpha, G-1, G*n - G, lower.tail = F))
-#Find the probability of this critical value under Ha
-pf(Fcrit, G-1, G*n-G, ncp = lambda, lower.tail = F)
-```
-Now we're at 87% power.  But instead of only 9 mice, we need 15 mice total, and we'll have to decide if that's feasible for our study.
+You can see that for any given maximum difference in means, there are multiple ways for those means to be arranged.  The minimum value of lambda occurs when two means are set at the maximum difference apart ($\Delta/2$ and $-\Delta/2$), and all the others are equal to zero.  The maximum value of lambda occurs when all of the means are set at $\Delta/2$ and $-\Delta/2$, with roughly equal frequency.
 
 **What's the takeaway?**
 Our power to distinguish between the null hypothesis distribution and the alternative hypothesis distribution depends on the noncentrality parameter, lambda.  The bigger lambda is, the more power we have.
@@ -269,33 +572,33 @@ $$\lambda = \frac{\sum n_i (\mu_i - \mu)^2}{\sigma^2}$$
 * Small standard deviation.
 
   + This also makes sense.  If there's not a lot of scatter within groups, it's easier to see the differences between groups.
-*Say something about number of groups? Some ncps include a "divided by k" that will penalize for number of groups*
-
-*also add a statement about how to choose the mean level responses to maximize/minimize sample size**
 
 ## Effect size
 
-The problem with the power calculations above is that we had to specify the mean of each level.  Since this is what we want to figure out with our experiment, it's hard.  What we really want is a way to compute power or sample size based on a meaningful difference between level means!
+The problem with the power calculations above is that we had to specify the mean of each level.  Sometimes what we want is a way to compute power or sample size based on a meaningful difference between level means!
 
 When we talked about comparing the means of just two groups (with a 2-sample t test), we defined the "effect size" as the difference in the two means.  For power calculations, we specify 3 out of the 4 of effect size, sample size, power, and alpha, and solve for the fourth. The notion of effect size makes power calculations easier because instead of having to specify means for each group, we can just specify what a meaningful difference would be.
 
 We can similarly define an effect size for ANOVA power calculations.  Here we're not just comparing the means of two groups, we're comparing the means of three or more groups.  So we're interested in how much the means differ among all three (or more) groups.  We'll measure this with a "variance of the means", $\sigma^2_m$.
 
 The grand mean $\mu$ is the weighted average of all the level means:
+
 $$\mu = \sum_{i=1}^{G}(\frac{n_i}{N})\mu_i$$
 We'll define the variance of the means as the squared difference between the level means and the grand mean. This is analogous to the more familiar variance that we estimate with standard deviation:
+
 $$\sigma^2 = \sum_{i=1}^{n}\frac{(x_i-\mu)^2}{n} \approx \sum_{i=1}^{n}\frac{(x_i-\bar{x})^2}{n-1}$$
 This definition of the variance of the means gives us:
+
 $$\sigma_m = \sum_{i=1}^{G}(\frac{n_i}{N})(\mu_i - \mu)^2$$
 We can rewrite our noncentrality parameter, lambda, in terms of this variance of the means:
+
 $$\lambda = \frac{\sum_{i=1}^{G} n_i(\mu_i - \mu)^2}{\sigma^2}=\frac{N\sum_{i=1}^{G} \frac{n_i}{N}(\mu_i - \mu)^2}{\sigma^2}\\
 =N \frac{\sigma^2_m}{\sigma^2}$$
 
 Now we've got lambda written as a function of the ratio of the variance of the means to the overall variance!  You can think of this as a comparison of "how much do the means differ between groups" to "how much scatter is there overall between all the data points".  This is what we'll use as our "effect size" for ANOVA.
 
-*we need another graphic here with the grand mean and level means and overall scatter*
-
 One commonly used effect size parameter for ANOVA is Cohen's f, which is simply defined as
+
 $$f = \sqrt{\frac{\sigma^2_m}{\sigma^2}}$$
 The noncentrality parameter can then be written as:
 $$\lambda = Nf^2$$
@@ -308,105 +611,63 @@ f = 1.0 ~~\textrm{large effect}$$
 
 But these are very general guidelines and might not apply to your research!  Don't just plug them in blindly.  Use your subject area expertise to determine a meaningful effect size for your study.  It might be easier to start by thinking of the variance of the means, $\sigma_m^2$, compared to the spread of data you've seen in past experiments ($\sigma^2$ can be estimated with the square of the standard deviation).  
 
-Another effect size parameter for ANOVA is $\eta^2$ (eta-squared):
-$$\eta^2 = \frac{\sigma^2_m}{\sigma^2_m + \sigma^2}=\frac{f^2}{1+f^2}$$
-At first glance this seems even less intuitive, but a little rearrangement might be able to help you figure out a meaningful value for Cohen's f.  $\eta^2$ can also be written in terms of sums of squares, as the proportion of the total variation in the dependent variable that can be explained by the group level effect:
-$$\eta^2 = \frac{\sigma^2_m}{\sigma^2_m + \sigma^2} = \frac{SS_{Treatment}}{SS_{Total}}$$
-Maybe you have some idea (say from previous experiments) how the sums of squares will be partitioned between the independent variable and error terms, or else you can estimate the ratio you'd need for clinical relevance.  Then you can use this to estimate f by rearranging:
+## Example with effect size
 
-$$\eta^2 = \frac{f^2}{1+f^2}\\
-\textrm{then}~~f^2 = \frac{\eta^2}{1-\eta^2}$$
+We have 3 groups with n = 3 apiece.  The maximum difference in means that we expect to see is 3 and we expect the standard deviation to be about 0.89.
 
+First pattern of means: 1.5, -1.5, 0.  (This will give the minimum lambda and minimum Cohen's f).
+$$G = 3\\
+\alpha = 0.05\\
+power = 0.80\\
+\mu_1 = 1.5\\
+\mu_2 = -1.5\\
+\mu_3 = 0$$
 
-# Two-way ANOVA model
+Second pattern of means: 1.5, -1.5, 1.5.  (This will give the maximum lambda and maximum Cohen's f).
+$$G = 3\\
+\alpha = 0.05\\
+power = 0.80\\
+\mu_1 = 1.5\\
+\mu_2 = -1.5\\
+\mu_3 = 1.5$$
 
+```{r}
+#specify parameters
+Delta <- 3
+sd <- 0.89
+G <- 3
 
-*Notes/Questions: Do we want to include interaction stuff like this, or separately, or not at all?  Do we want to discuss fixed vs random factors at all?  (=Is this something you're going to want to bring into a discussion later on?)*
+#calculate min cohen's f
+sdm.min <- Delta/sqrt(2*G)
+fmin <- sdm.min/sd
+fmin   #1.376
 
-Many experiments involve testing more than one factor.  In the example of mice receiving Treatment A, Treatment B, or Placebo, we might also be interested in whether the blood biomarker level differs according to the sex of the mouse.  Now we have two different "effects" to consider, plus the way they interact:
-* Treatment effect (A, B, or Placebo)
-* Sex effect (male or female)
-* Interaction between Treatment effect and Sex effect
+#calculate max cohen's f
+#formula is different for odd vs even numbers of G
+sdm.max <- ifelse(
+  #check if even
+  (G%%2)==0,
+  #formula for even G
+  Delta/2,
+  #formula for odd G
+  (Delta*sqrt(G^2-1))/(2*G)
+)
+fmax <- sdm.max/sd
+fmax #1.589
 
-  + Maybe we expect the biological mechanism of Treatment A to operate through pathways influenced by sex hormones.
-  + Male mice in the placebo group might have high levels of the biomarker, while female mice in the placebo group have low biomarker levels.  But female mice in the treatment groups might have increased levels of the biomarker, while the biomarker levels in male mice decrease or stay constant.  
-  + Effect level responses that differ according to the other effect level are interactions.
+pwr.anova.test(k=3, n=3, f=1.376) #power = 81.1%
+pwr.anova.test(k=3, n=3, f=1.589) #power = 90.8%
 
-Our ANOVA model now has more terms in it:
-$$\mu_{ij}=\mu + \alpha_i + \beta_j + (\alpha\beta)_{ij}$$
-where $\mu_{ij}$ is the mean in a particular cell, $\mu$ is the grand mean, $\alpha_i$ is the first effect (for example, Treatment), $\beta$ is the second effect (for example, Sex), and $(\alpha\beta)_{ij}$ is the interaction between the two effects. 
-
-We calculate power using the same general method as for one-way ANOVA.  We still want to distinguish between the distributions that correspond to the null and alternative hypotheses.  For now, let's use our mouse biomarker example, and let's assume that we don't expect any interaction between Treatment and Sex.  There will be three pairs of null and alternative hypothesis, each testable with a partial F statistic that corresponds to the sum of squares for that independent variable divided by the total sum of squares:
-
-$$H_0: \alpha_1 = \alpha_2 = \alpha_3 = 0\\
-\textrm{There is no Treatment effect.}\\
-\sim F_{a-1, ab(n-1), 0.05}\\
-H_A: \textrm{There is a Treatment effect.}\\
-\sim F_{a-1, ab(n-1), 0.05, \lambda}$$
-
-$$H_0: \beta_1 = \beta_2=0\\
-\textrm{There is no Sex effect.} \\
-\sim F_{b-1, ab(n-1), 0.05}\\
-H_A: \textrm{There is a Sex effect.}\\
-\sim F_{b-1, ab(n-1), 0.05, \lambda}$$
-
-$$H_0: \textrm{All the}~~(\alpha\beta)~~ \textrm{terms}= 0\\
-\textrm{There is no interaction effect.}\\ 
-\sim F_{(a-1)(b-1), ab(n-1), 0.05}\\
-H_A: \textrm{There is an interaction effect.}\\
-\sim F_{(a-1)(b-1), ab(n-1), 0.05}$$
-
-Here, a is the number of groups for the first effect (Treatment), b is the number of groups for the second effect (Sex), and n is the number of individuals in each cell of the ANOVA table (each combination of a and b).
-
-Once again, we'll use the noncentrality parameter lambda to represent how the distribution of the F statistic under the alternative hypothesis differs from the distribution under the null hypothesis.  There will be a different lambda for each effect!  Remember that lambda is defined as:
-$$\lambda = N \frac{\sigma_M^2}{\sigma^2}$$
-So the distribution under the alternative hypothesis, and thus the power of our test, will depend on the ratio of the variance of the mean for the effect we're testing to the overall variance. Just like for one-way ANOVA, we can either specify the group level means or use the effect size 
-$$f=\frac{\sigma_M^2}{\sigma^2}$$
-to estimate the required sample size.
-
-If you can specify 
-
-*What do we want in terms of illustration for this -- a sample, a calculator, nothing?  I'm not sure where you want this to go*
+```
 
 
-# Interactions
-
-*Dr. Minnier, I wasn't sure how much you want to go into interactions.  Do you want something else/more here? I feel like interactions are super confusing to begin with and will be even more confusing with the math added in, but I can do it. Maybe an example with numbers would be better than just equations.*
-
-Power calculations for interaction terms can be tricky to think about, because there are two basic types of interactions.
-
-**Ordinal** interactions occur when the mean of a group for one effect is always lower than the other mean of the other group(s) for that effect, no matter what the level of the second effect.  In our mouse example, if male mice had lower concentrations of blood biomarker than female mice no matter what the treatment group, and the biomarker concentration with Treatment A increased less for male mice than for female mice, then there would be an ordinal interaction between Treatment and Sex.
-
-**Disordinal** interactions occur when the group level means within one effect flip order, depending on the level of the other effect.  In our mouse example, if male mice had lower concentrations of blood biomarker than female mice with Placebo and Treatment A, but higher concentrations of blood biomarker with Treatment B, then there would be a sisordinal interaction between Treatment and Sex.
-
-*need a graphic with the two types of interactions here*
-
-We saw earlier that the variance of the mean, $\sigma_M$, could be expressed in terms of the sum of squares due to the group level effect. With disordinal interactions, the interaction term accounts for more of the total sum of squares, and the main effects account for less.  This means that the power of the test for the interaction term will be relatively high.
-
-With ordinal interactions, on the other hand, the main effects account for more of the total sum of squares, and the interaction term accounts for less.  This means that the power of the test for the interaction term will be relatively low, so large sample sizes will be needed in order to reject the null hypothesis of no interaction effect!
-
-# Multiple comparisons considerations
-
-*Not sure how deep into this you'd like to go, either...  I'm happy to add details if you like, especially if you give me some guidance about what you'd like included.  The Dunnett test approach?*
-
-Say you ran your experiment and crunched the data, and you were able to reject the null hypothesis.  HURRAY!  But what does that mean?
-
-Rejecting the null hypothesis in ANOVA means that there is a group level effect -- across whatever groups you were looking at, there is a difference in means.  **It doesn't tell you which means are different.**  Take our one-way ANOVA example with Treatment A, Treatment B, and Placebo.  Rejecting the null hypothesis means that not all the group level means are the same, but if we want to know which group level means are significantly different from each other, we will have to compare them pairwise with t-tests: Treatment A vs Treatment B, Treatment A vs Placebo, and Treatment B vs Placebo.
-As the number of group level means we compare goes up, the number of pairwise comparisons increases fast.  This is a problem because **if we perform each pairwise comparison with alpha = 0.05, the overall error rate will be much higher than 5%**.  
-
-The overall or family-wise error rate is controlled during analysis by reducing the alpha level for each individual test.  The simplest (Bonferroni) method is to divide alpha by the number of tests to be performed.  In our mouse biomarker example, the alpha for each individual 2-sample t test would become 0.05/3 = 0.0167.  This has the effect of making it harder to reject the null hypothesis for any individual test.  
-
-*tie this back into t tests*
-
-# ANCOVA
 
 # References
 
 
 Huang, Yibi.  "Chapter 7: Power & Sample Size Calculation for ANOVA."  http://www.stat.uchicago.edu/~yibi/teaching/stat222/2017/Lectures/C07.pdf
 
-Lakens D, Caldwell AR. Simulation-Based Power Analysis for Factorial Analysis of Variance Designs. Advances in Methods and Practices in Psychological Science. January 2021. doi:10.1177/2515245920951503
+PASS software documentation. "One-Way Analysis of Variance F-Tests Using Effect Size." "One Way Analysis of Variance Assuming Equal Variances (F-Tests)."
 
-PASS software documentation. "One-Way Analysis of Variance F-Tests Using Effect Size." "Factorial Analysis of Variance."
-
+Ryan, Thomas P. *Sample Size Determination and Power*.  Hoboken: John Wiley & Sons, Inc., 2013.
 
