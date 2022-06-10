@@ -5,9 +5,6 @@ date: "6/8/2022"
 output: 
   html_document:
     theme: lumen
-    toc: yes
-    toc_float:
-      collapsed: yes
     keep_md: true
 ---
 
@@ -339,16 +336,17 @@ Why do we care?  It's related to the noncentrality parameter for the ANOVA F sta
 $$\lambda = \frac{\sum_{i=1}^{G} n_i(\mu_i - \mu)^2}{\sigma^2}
 =N \frac{\sigma^2_m}{\sigma^2} = Nf^2$$
 
-**We can estimate a minimum value for $\sigma^2_m$ from a difference in means.**
+**We can estimate a maximum and a minimum value for $\sigma^2_m$ from a difference in means.**
 
 You probably have an idea what a meaningful difference in means would be for your experiment!
 
-## Effect size: a better way
+## Effect size part 2
 
 Say we'd be interested if any two means were different by amount $\Delta$.
 
 - Use $\Delta$ to calculate the minimum variance in means, $\sigma^2_m$ 
 - Then calculate a minimum Cohen's f
+- Repeat to find the maximum variance in means and maximum Cohen's f
 
 **The minimum $\sigma_m$ occurs if two means differ by exactly $\Delta$, and all the other means are halfway between.**
 
@@ -366,7 +364,8 @@ $$f = \sqrt{\frac{\sigma_m^2(min)}{\sigma^2}}=\sqrt{\frac{\Delta^2}{2G\sigma^2}}
 
 And the noncentrality parameter for one-way ANOVA becomes:
 $$\lambda =N \frac{\sigma^2_m}{\sigma^2}=\frac{N\Delta^2}{2G\sigma^2}$$
-# Takeaways for power/sample size calculations
+
+## Takeaways for power/sample size calculations
 
 Remember that $\lambda$ quantifies the difference between the distribution under H0 and the difference under HA.
 
@@ -378,8 +377,6 @@ $\lambda$ is larger when:
 - N (total number of observations) goes up
 
 - The difference between at least one pair of means goes up
-
-- G (number of groups) goes down
 
 - $\sigma^2$ (overall variation in the data) goes down
 
@@ -557,59 +554,6 @@ pf(Fcrit, G-1, G*n-G, ncp = lambda, lower.tail = F)
 
 You can see that for any given maximum difference in means, there are multiple ways for those means to be arranged.  The minimum value of lambda occurs when two means are set at the maximum difference apart ($\Delta/2$ and $-\Delta/2$), and all the others are equal to zero.  The maximum value of lambda occurs when all of the means are set at $\Delta/2$ and $-\Delta/2$, with roughly equal frequency.
 
-**What's the takeaway?**
-Our power to distinguish between the null hypothesis distribution and the alternative hypothesis distribution depends on the noncentrality parameter, lambda.  The bigger lambda is, the more power we have.
-
-What results in a big lambda?
-$$\lambda = \frac{\sum n_i (\mu_i - \mu)^2}{\sigma^2}$$
-
-* Large number of individuals in each group (n_i_)
-
-* Large difference between group level means and the overall (grand) mean
-
-  + This makes intuitive sense.  The more different your group means are, the easier it will be to prove they're actually different!  This is related to the idea of effect size, which we'll talk about in a minute.
-  
-* Small standard deviation.
-
-  + This also makes sense.  If there's not a lot of scatter within groups, it's easier to see the differences between groups.
-
-## Effect size
-
-The problem with the power calculations above is that we had to specify the mean of each level.  Sometimes what we want is a way to compute power or sample size based on a meaningful difference between level means!
-
-When we talked about comparing the means of just two groups (with a 2-sample t test), we defined the "effect size" as the difference in the two means.  For power calculations, we specify 3 out of the 4 of effect size, sample size, power, and alpha, and solve for the fourth. The notion of effect size makes power calculations easier because instead of having to specify means for each group, we can just specify what a meaningful difference would be.
-
-We can similarly define an effect size for ANOVA power calculations.  Here we're not just comparing the means of two groups, we're comparing the means of three or more groups.  So we're interested in how much the means differ among all three (or more) groups.  We'll measure this with a "variance of the means", $\sigma^2_m$.
-
-The grand mean $\mu$ is the weighted average of all the level means:
-
-$$\mu = \sum_{i=1}^{G}(\frac{n_i}{N})\mu_i$$
-We'll define the variance of the means as the squared difference between the level means and the grand mean. This is analogous to the more familiar variance that we estimate with standard deviation:
-
-$$\sigma^2 = \sum_{i=1}^{n}\frac{(x_i-\mu)^2}{n} \approx \sum_{i=1}^{n}\frac{(x_i-\bar{x})^2}{n-1}$$
-This definition of the variance of the means gives us:
-
-$$\sigma_m = \sum_{i=1}^{G}(\frac{n_i}{N})(\mu_i - \mu)^2$$
-We can rewrite our noncentrality parameter, lambda, in terms of this variance of the means:
-
-$$\lambda = \frac{\sum_{i=1}^{G} n_i(\mu_i - \mu)^2}{\sigma^2}=\frac{N\sum_{i=1}^{G} \frac{n_i}{N}(\mu_i - \mu)^2}{\sigma^2}\\
-=N \frac{\sigma^2_m}{\sigma^2}$$
-
-Now we've got lambda written as a function of the ratio of the variance of the means to the overall variance!  You can think of this as a comparison of "how much do the means differ between groups" to "how much scatter is there overall between all the data points".  This is what we'll use as our "effect size" for ANOVA.
-
-One commonly used effect size parameter for ANOVA is Cohen's f, which is simply defined as
-
-$$f = \sqrt{\frac{\sigma^2_m}{\sigma^2}}$$
-The noncentrality parameter can then be written as:
-$$\lambda = Nf^2$$
-to simplify power calculations.  Now instead of needing to specify a level mean for each group, we can just specify one effect size.
-
-Cohen suggested guidelines for f: 
-$$f = 0.1 ~~\textrm{small effect}\\
-f = 0.25 ~~\textrm{medium effect}\\
-f = 1.0 ~~\textrm{large effect}$$
-
-But these are very general guidelines and might not apply to your research!  Don't just plug them in blindly.  Use your subject area expertise to determine a meaningful effect size for your study.  It might be easier to start by thinking of the variance of the means, $\sigma_m^2$, compared to the spread of data you've seen in past experiments ($\sigma^2$ can be estimated with the square of the standard deviation).  
 
 ## Example with effect size
 
